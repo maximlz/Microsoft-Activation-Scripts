@@ -8,6 +8,11 @@ import { useTranslation } from 'react-i18next'; // Импортируем хук
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { FirebaseError } from 'firebase/app'; // Импортируем FirebaseError
 import { db } from './config/firebaseConfig';
+import LoginPage from './admin/LoginPage'; // Импортируем LoginPage
+import ProtectedRoute from './auth/ProtectedRoute'; // Импортируем ProtectedRoute
+import AdminLayout from './admin/AdminLayout'; // Импортируем AdminLayout
+import RegistrationsList from './admin/RegistrationsList'; // Импортируем RegistrationsList
+import CountriesManager from './admin/CountriesManager'; // Импортируем CountriesManager
 
 // Статический ключ для ошибки загрузки стран
 const FETCH_COUNTRIES_ERROR_KEY = 'errors.fetchCountriesGeneric';
@@ -82,22 +87,27 @@ function HomePage() {
   );
 }
 
-// Компонент-заглушка для админ-панели
-function AdminPage() {
-  return (
-    <Container>
-      <Typography variant="h4">Admin Panel</Typography>
-      <p>Здесь будет админ-панель.</p>
-    </Container>
-  );
-}
-
 // Основной компонент приложения с маршрутизацией
 function App() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
-      <Route path="/admin" element={<AdminPage />} /> {/* Маршрут для админки */} 
+      <Route path="/admin/login" element={<LoginPage />} />
+      {/* Защищаем маршрут /admin и используем AdminLayout */}
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute>
+            <AdminLayout />
+          </ProtectedRoute>
+        }
+      >
+        {/* Главная страница админки */}
+        <Route index element={<RegistrationsList />} />
+        {/* Маршрут для управления странами */}
+        <Route path="countries" element={<CountriesManager />} />
+        {/* Другие вложенные маршруты админки пойдут сюда */}
+      </Route>
       {/* Можно добавить Route path="*" для страницы 404 */}
     </Routes>
   );
