@@ -17,12 +17,13 @@ import { format } from 'date-fns'; // Используем date-fns для на�
 // Добавляем export
 export const guestConverter: FirestoreDataConverter<IGuestFormDataWithId> = {
     toFirestore(guestWithId: WithFieldValue<IGuestFormDataWithId>): DocumentData {
-        const dataToWrite = { ...guestWithId };
-        delete (dataToWrite as any).id;
+        const { id, ...dataToWrite } = guestWithId; // Используем деструктуризацию
+        // Не нужно удалять id, так как мы его исключили при деструктуризации
         return dataToWrite;
     },
     fromFirestore(snapshot: DocumentData, options: SnapshotOptions): IGuestFormDataWithId {
         const data = snapshot.data(options)!;
+        // Добавляем bookingConfirmationCode
         return {
             id: snapshot.id,
             firstName: data.firstName || '',
@@ -42,7 +43,8 @@ export const guestConverter: FirestoreDataConverter<IGuestFormDataWithId> = {
             postcode: data.postcode || '',
             visitDate: data.visitDate || '',
             countryCode: data.countryCode,
-            timestamp: data.timestamp,
+            bookingConfirmationCode: data.bookingConfirmationCode, // <-- Добавляем код бронирования
+            timestamp: data.timestamp, // timestamp остается
         } as IGuestFormDataWithId;
     }
 };
@@ -87,6 +89,16 @@ const columns = (
     },
     { field: 'firstName', headerName: t('registrations.header.firstName', 'First Name'), width: 130 },
     { field: 'lastName', headerName: t('registrations.header.lastName', 'Last Name'), width: 150 },
+    {
+        field: 'bookingConfirmationCode',
+        headerName: t('registrations.header.confCode', 'Conf. Code'),
+        width: 130,
+        renderCell: (params) => (
+             <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
+                 {params.value || '-'} {/* Показываем прочерк, если кода нет */}
+            </Typography>
+        )
+    },
     {
         field: 'email', headerName: t('registrations.header.email', 'Email'), width: 200,
         renderCell: (params) => (

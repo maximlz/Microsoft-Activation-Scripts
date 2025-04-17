@@ -8,6 +8,8 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import { useTranslation } from 'react-i18next';
 import ListAltIcon from '@mui/icons-material/ListAlt'; // Для Registrations
 import PublicIcon from '@mui/icons-material/Public'; // Для Countries
+import BookOnlineIcon from '@mui/icons-material/BookOnline'; // <-- Иконка для Bookings
+import BusinessIcon from '@mui/icons-material/Business'; // <-- Иконка для Properties
 
 interface AdminLayoutProps {
     children?: ReactNode; // Необязательно, т.к. будем использовать Outlet
@@ -61,6 +63,8 @@ function AdminLayout({ children }: AdminLayoutProps) {
     const menuItems = [
         { text: t('adminLayout.nav.registrations', 'Registrations'), path: '/admin', icon: <ListAltIcon /> },
         { text: t('adminLayout.nav.countries', 'Countries'), path: '/admin/countries', icon: <PublicIcon /> },
+        { text: t('adminLayout.nav.bookings', 'Bookings'), path: '/admin/bookings', icon: <BookOnlineIcon /> },
+        { text: t('adminLayout.nav.properties', 'Properties'), path: '/admin/properties', icon: <BusinessIcon /> },
     ];
 
     return (

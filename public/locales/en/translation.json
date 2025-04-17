@@ -53,5 +53,33 @@
   "successMessage": "Guest registered successfully!",
   "errorMessage": "Failed to register guest. Please try again.",
   "optionalField": "(Optional)",
-  "homeAddress": "Home Address"
+  "homeAddress": "Home Address",
+  
+  "registrationSuccess": {
+    "title": "Registration Completed",
+    "heading": "Thank You!",
+    "message": "Your registration has been completed successfully.",
+    "details": "You will receive a confirmation email with your registration details. If you have any questions, please contact the property manager.",
+    "homeButton": "Return to Home"
+  },
+  
+  "guestRegistration": {
+    "title": "Guest Registration",
+    "registerButton": "Register New Guest",
+    "newGuestTitle": "Register Guest Details",
+    "finishButton": "Finish Registration",
+    "loading": "Loading registration information...",
+    "error": "Error",
+    "returnHome": "Return to Home",
+    "bookingDetails": "Booking Details",
+    "confirmationCode": "Confirmation Code",
+    "property": "Property",
+    "checkIn": "Check-in",
+    "checkOut": "Check-out",
+    "guestsRegistered": "Guests Registered",
+    "unnamedGuest": "Unnamed Guest",
+    "noGuests": "No guests registered for this booking yet.",
+    "cancel": "Cancel",
+    "document": "Document"
+  }
 } 

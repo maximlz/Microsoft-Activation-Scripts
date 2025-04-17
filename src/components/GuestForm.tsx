@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useForm, SubmitHandler, Controller, useWatch } from 'react-hook-form';
 import {
-  Paper, Box, Typography, TextField, Button, Grid,
+  Paper, Box, TextField, Button, Grid,
   Select, MenuItem, FormControl, InputLabel, FormHelperText,
-  Snackbar, Alert, Container
+  Snackbar, Alert, Container, CircularProgress
 } from '@mui/material';
-import { MuiTelInput, matchIsValidTel, MuiTelInputInfo} from 'mui-tel-input';
+import { MuiTelInput, matchIsValidTel, MuiTelInputInfo } from 'mui-tel-input';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { FirebaseError } from 'firebase/app';
 import { db } from '../config/firebaseConfig';
 import { useTranslation } from 'react-i18next';
 import { useJsApiLoader, Autocomplete } from '@react-google-maps/api';
+// Импортируем тип формы из types
+import { IGuestFormShape, IGuestFormData } from '../types/guestTypes';
 
 // Тип для страны (экспортируется)
 export interface Country {
@@ -19,31 +21,14 @@ export interface Country {
   code: string;
 }
 
-// IGuestFormData interface
-interface IGuestFormData {
-  firstName: string;
-  lastName: string;
-  secondLastName?: string;
-  birthDate: string;
-  nationality: string;
-  sex: string;
-  documentType: string;
-  documentNumber: string;
-  documentSupNum?: string;
-  phone: string;
-  email: string;
-  countryResidence: string;
-  residenceAddress: string;
-  city: string;
-  postcode: string;
-  visitDate: string;
-  countryCode?: string;
-}
-
-// GuestFormProps interface
+// Обновленный интерфейс пропсов
 interface GuestFormProps {
   countries: Country[];
   loadingCountries: boolean;
+  bookingId?: string;
+  onSaveSuccess?: (savedGuestData: IGuestFormShape) => void;
+  onSubmit?: (guestData: IGuestFormData) => Promise<void>;
+  isSaving?: boolean;
 }
 
 // Библиотеки Google Maps для загрузки (оставляем одно определение)
@@ -86,7 +71,7 @@ const validateVisitDate = (visitDateString: string): boolean | string => {
   }
 };
 
-const GuestForm: React.FC<GuestFormProps> = ({ countries, loadingCountries }) => {
+const GuestForm: React.FC<GuestFormProps> = ({ countries, loadingCountries, bookingId, onSaveSuccess, onSubmit, isSaving: isSavingProp }) => {
   console.log("GuestForm RENDERED. Loading countries:", loadingCountries);
 
   const { t } = useTranslation();
@@ -100,9 +85,13 @@ const GuestForm: React.FC<GuestFormProps> = ({ countries, loadingCountries }) =>
     setValue,
     trigger,
     getValues
-  } = useForm<IGuestFormData>({
+  } = useForm<IGuestFormShape>({
     mode: 'onTouched',
     defaultValues: {
+      firstName: '',
+      lastName: '',
+      secondLastName: '',
+      birthDate: '',
       nationality: '',
       sex: '',
       documentType: '',
@@ -115,7 +104,6 @@ const GuestForm: React.FC<GuestFormProps> = ({ countries, loadingCountries }) =>
       city: '',
       postcode: '',
       visitDate: '',
-      countryCode: 'ES',
     }
   });
 
@@ -134,15 +122,18 @@ const GuestForm: React.FC<GuestFormProps> = ({ countries, loadingCountries }) =>
     setShowResidenceError(!!touchedFields.residenceAddress || isSubmitted);
   }, [touchedFields.residenceAddress, isSubmitted]);
 
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  // Используем внутреннее состояние для isSubmitting, если isSaving не передан
+  const [isSubmittingInternal, setIsSubmittingInternal] = useState<boolean>(false);
+  const isSubmitting = isSavingProp ?? isSubmittingInternal;
+
   const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false);
   const [snackbarMessage, setSnackbarMessage] = useState<string>('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
 
-  const [phoneCountryCode, setPhoneCountryCode] = useState<string>('ES');
+  const [phoneInfo, setPhoneInfo] = useState<MuiTelInputInfo | null>(null);
 
-  // Используем 'as const' для более строгого определения типа
-  const preferredPhoneCountries = ['GB', 'ES', 'FR', 'IT', 'DE'] as const;
+  // Убираем явную типизацию
+  const preferredPhoneCountries = ['GB', 'ES', 'FR', 'IT', 'DE'];
 
   const preferredCountryNames = ['United Kingdom of Great Britain and Northern Ireland', 'Spain', 'France', 'Italy', 'Germany'];
 
@@ -168,22 +159,45 @@ const GuestForm: React.FC<GuestFormProps> = ({ countries, loadingCountries }) =>
   const [cityKey, setCityKey] = useState(0);
   const [postcodeKey, setPostcodeKey] = useState(0);
 
-  const onSubmit: SubmitHandler<IGuestFormData> = async (data) => {
-    setIsSubmitting(true);
+  const handleFormSubmit: SubmitHandler<IGuestFormShape> = async (data) => {
+    // --- ЛОГ ВНУТРИ ОБРАБОТЧИКА ФОРМЫ ---
+    console.log("GuestForm -> handleFormSubmit called. Received onSubmit prop:", onSubmit ? 'function' : typeof onSubmit);
+    // --- КОНЕЦ ЛОГА ---
+
+    if (isSavingProp === undefined) setIsSubmittingInternal(true);
     setSnackbarOpen(false);
+
+    // Собираем данные для сохранения, тип IGuestFormData
+    const dataToSave: IGuestFormData = {
+      ...data,
+      countryCode: phoneInfo?.countryCode || '',
+      timestamp: Timestamp.now(),
+      ...(bookingId && !onSubmit && { bookingId: bookingId }),
+    };
+
     try {
-      await addDoc(collection(db, "guests"), {
-        ...data,
-        countryCode: phoneCountryCode,
-        timestamp: Timestamp.now()
-      });
-      setSnackbarMessage(t('successMessage'));
-      setSnackbarSeverity('success');
-      setSnackbarOpen(true);
-      reset();
+      if (onSubmit) {
+        // Передаем собранный IGuestFormData
+        await onSubmit(dataToSave);
+        setSnackbarMessage(t('guestForm.saveSuccess', 'Guest registered successfully!'));
+        setSnackbarSeverity('success');
+        setSnackbarOpen(true);
+        reset();
+      } else {
+        // Сохраняем собранный IGuestFormData
+        await addDoc(collection(db, "guests"), dataToSave);
+        setSnackbarMessage(t('guestForm.saveSuccessDefault', 'Information submitted successfully!'));
+        setSnackbarSeverity('success');
+        setSnackbarOpen(true);
+        if (onSaveSuccess) {
+          onSaveSuccess(data); // Передаем оригинальные данные формы (IGuestFormShape)
+        } else {
+          reset();
+        }
+      }
     } catch (error) {
-      console.error("Error adding document: ", error);
-      let userErrorMessage = t('errorMessage');
+      console.error("Error saving guest data: ", error);
+      let userErrorMessage = t('guestForm.saveError', 'An error occurred while saving. Please try again.');
       if (error instanceof FirebaseError) {
         switch (error.code) {
           case 'permission-denied':
@@ -199,7 +213,7 @@ const GuestForm: React.FC<GuestFormProps> = ({ countries, loadingCountries }) =>
       setSnackbarSeverity('error');
       setSnackbarOpen(true);
     } finally {
-      setIsSubmitting(false);
+      if (isSavingProp === undefined) setIsSubmittingInternal(false);
     }
   };
 
@@ -293,6 +307,11 @@ const GuestForm: React.FC<GuestFormProps> = ({ countries, loadingCountries }) =>
     setSnackbarOpen(false);
   };
 
+  const handlePhoneChange = (newValue: string, info: MuiTelInputInfo) => {
+      setValue('phone', newValue, { shouldValidate: true, shouldTouch: true });
+      setPhoneInfo(info); // Сохраняем информацию о телефоне (теперь setPhoneInfo используется)
+  };
+
   const handleAutocompleteLoad = (autocomplete: google.maps.places.Autocomplete) => {
     autocompleteRef.current = autocomplete;
   };
@@ -352,17 +371,8 @@ const GuestForm: React.FC<GuestFormProps> = ({ countries, loadingCountries }) =>
   }
 
   return (
-    <Paper elevation={3} className="paper-padding">
-      <Box
-        component="form"
-        noValidate
-        autoComplete="off"
-        onSubmit={handleSubmit(onSubmit)}
-        className="form-margin-top"
-      >
-        <Typography variant="h6" component="h2" gutterBottom mb={3}>
-          {t('guestDetails')}
-        </Typography>
+    <Container component={Paper} elevation={0} sx={{ p: { xs: 2, sm: 3 }, mt: 0, border: 'none' }}>
+      <Box component="form" onSubmit={handleSubmit(handleFormSubmit)} noValidate sx={{ mt: 1 }}>
         <Grid container spacing={3}>
           <Grid item xs={12} sm={6}>
             <TextField
@@ -573,16 +583,14 @@ const GuestForm: React.FC<GuestFormProps> = ({ countries, loadingCountries }) =>
                     <MuiTelInput
                       {...field}
                       label={t('phone')}
-                      defaultCountry={phoneCountryCode as any}
+                      defaultCountry="ES"
                       preferredCountries={preferredPhoneCountries as any}
                       variant="outlined"
                       fullWidth
+                      required
                       error={fieldState.invalid}
                       helperText={fieldState.error ? getErrorMessage(fieldState.error) : ''}
-                      onChange={(newValue: string, info: MuiTelInputInfo) => {
-                        field.onChange(newValue);
-                        setPhoneCountryCode(info.countryCode || 'ES');
-                      }}
+                      onChange={handlePhoneChange}
                     />
                   );
                 }}
@@ -723,20 +731,17 @@ const GuestForm: React.FC<GuestFormProps> = ({ countries, loadingCountries }) =>
               helperText={errors.visitDate ? getErrorMessage(errors.visitDate) : ''}
             />
           </Grid>
-          <Grid item xs={12}>
-            <Button
-              type="submit"
-              variant="contained"
-              color="primary"
-              fullWidth
-              size="large"
-              disabled={isSubmitting}
-              className="button-margin-top"
-            >
-              {isSubmitting ? t('loadingPlaceholder') : t('submitButton')}
-            </Button>
-          </Grid>
         </Grid>
+        <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end' }}>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={isSubmitting || loadingCountries}
+            sx={{ minWidth: 120 }}
+          >
+            {isSubmitting ? <CircularProgress size={24} /> : t('submitButton')}
+          </Button>
+        </Box>
       </Box>
       <Snackbar
         open={snackbarOpen}
@@ -744,11 +749,11 @@ const GuestForm: React.FC<GuestFormProps> = ({ countries, loadingCountries }) =>
         onClose={handleSnackbarClose}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert onClose={handleSnackbarClose} severity={snackbarSeverity} className="alert-full-width">
+        <Alert onClose={handleSnackbarClose} severity={snackbarSeverity} sx={{ width: '100%' }}>
           {snackbarMessage}
         </Alert>
       </Snackbar>
-    </Paper>
+    </Container>
   );
 };
 

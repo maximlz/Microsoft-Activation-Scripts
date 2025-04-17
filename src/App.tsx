@@ -13,6 +13,10 @@ import ProtectedRoute from './auth/ProtectedRoute'; // Импортируем Pr
 import AdminLayout from './admin/AdminLayout'; // Импортируем AdminLayout
 import RegistrationsList from './admin/RegistrationsList'; // Импортируем RegistrationsList
 import CountriesManager from './admin/CountriesManager'; // Импортируем CountriesManager
+import BookingManagement from './admin/BookingManagement'; // <-- Добавляем импорт
+import GuestRegistrationPage from './components/GuestRegistrationPage'; // <-- Импорт страницы регистрации гостя
+import PropertyManagement from './admin/PropertyManagement'; // <-- Импорт нового компонента
+import RegistrationSuccess from './components/RegistrationSuccess'; // <-- Импорт новой страницы успеха
 
 // Статический ключ для ошибки загрузки стран
 const FETCH_COUNTRIES_ERROR_KEY = 'errors.fetchCountriesGeneric';
@@ -92,6 +96,8 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
+      <Route path="/register/:token" element={<GuestRegistrationPage />} /> {/* <-- Публичный маршрут для регистрации */}
+      <Route path="/registration-success" element={<RegistrationSuccess />} /> {/* <-- Новый маршрут для успешной регистрации */}
       <Route path="/admin/login" element={<LoginPage />} />
       {/* Защищаем маршрут /admin и используем AdminLayout */}
       <Route
@@ -106,6 +112,10 @@ function App() {
         <Route index element={<RegistrationsList />} />
         {/* Маршрут для управления странами */}
         <Route path="countries" element={<CountriesManager />} />
+        {/* Маршрут для управления бронированиями */}
+        <Route path="bookings" element={<BookingManagement />} /> {/* <-- Добавляем маршрут */}
+        {/* Маршрут для управления объектами */}
+        <Route path="properties" element={<PropertyManagement />} />
         {/* Другие вложенные маршруты админки пойдут сюда */}
       </Route>
       {/* Можно добавить Route path="*" для страницы 404 */}

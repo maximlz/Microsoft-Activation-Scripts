@@ -1,6 +1,6 @@
 {
   "formTitle": "Formulario de Registro de Huéspedes",
-  "guestDetails": "Detalles del Huésped",
+  "guestDetails": "Datos del Huésped",
   "firstName": "Nombre",
   "lastName": "Apellido",
   "secondLastName": "Segundo Apellido (Opcional)",
@@ -9,7 +9,7 @@
   "sex": "Sexo",
   "documentType": "Tipo de Documento",
   "documentNumber": "Número de Documento",
-  "documentSupNum": "Número de Soporte del Documento (Opcional)",
+  "documentSupNum": "Número de Soporte de Documento (Opcional)",
   "phone": "Teléfono",
   "email": "Correo Electrónico",
   "countryResidence": "País de Residencia",
@@ -27,33 +27,46 @@
   },
   "docTypeOptions": {
     "Passport": "Pasaporte",
-    "ID Card": "Tarjeta de Identidad",
+    "ID Card": "DNI",
     "NIF": "NIF",
     "Other": "Otro"
   },
   "errors": {
-    "required": "{{field}} es obligatorio",
-    "minLength": "{{field}} debe tener al menos {{length}} caracteres",
+    "required": "{{field}} es obligatorio.",
     "maxLength": "{{field}} debe tener como máximo {{length}} caracteres",
     "minLength_2": "{{field}} debe tener al menos 2 caracteres.",
     "minLength_5": "{{field}} debe tener al menos 5 caracteres.",
     "maxLength_20": "{{field}} debe tener como máximo 20 caracteres.",
-    "invalidEmail": "Dirección de correo electrónico inválida",
-    "invalidPhone": "Formato de número de teléfono inválido",
-    "minAge": "No se requiere registro para menores de 14 años",
-    "invalidDate": "Formato de fecha inválido",
-    "invalidInput": "Entrada inválida",
-    "firestorePermissionDenied": "Permiso denegado. Verifique las reglas de Firestore.",
-    "firestoreUnavailable": "No se puede conectar a la base de datos. Verifique su conexión.",
-    "fetchCountriesGeneric": "Error al cargar la lista de países.",
+    "patternEmail": "El formato de {{field}} no es válido",
+    "validatePhone": "Por favor introduce un número de teléfono válido",
+    "minAge": "No se requiere registro para huéspedes menores de 14 años",
+    "invalidDate": "Formato de fecha no válido",
+    "invalidInput": "Entrada no válida",
+    "unknownField": "Campo",
+    "firestorePermissionDenied": "Permiso denegado. Por favor, verifica las reglas de Firestore.",
+    "firestoreUnavailable": "No se puede conectar a la base de datos. Por favor verifica tu conexión.",
+    "fetchCountriesGeneric": "No se pudo cargar la lista de países.",
     "fetchCountriesPermission": "No se pudieron cargar los países debido a problemas de permisos.",
     "googleMapsLoadError": "Error al cargar la API de Google Maps. El autocompletado de direcciones no funcionará.",
-    "patternEmail": "El formato de {{field}} no es válido",
-    "validatePhone": "Por favor, introduce un número de teléfono válido",
-    "futureDateRequired": "La fecha de visita no puede ser anterior a la fecha actual."
+    "futureDateRequired": "La fecha de visita no debe ser anterior a la fecha actual."
   },
-  "successMessage": "¡Huésped registrado exitosamente!",
-  "errorMessage": "Error al registrar al huésped. Por favor, inténtelo de nuevo.",
-  "unknownField": "Campo",
-  "homeAddress": "Dirección particular"
+  "successMessage": "¡Huésped registrado con éxito!",
+  "errorMessage": "No se pudo registrar al huésped. Por favor, inténtalo de nuevo.",
+  "optionalField": "(Opcional)",
+  "homeAddress": "Dirección de Residencia",
+  
+  "registrationSuccess": {
+    "title": "Registro Completado",
+    "heading": "¡Gracias!",
+    "message": "Tu registro ha sido completado con éxito.",
+    "details": "Recibirás un correo electrónico de confirmación con los detalles de tu registro. Si tienes alguna pregunta, por favor contacta al administrador de la propiedad.",
+    "homeButton": "Volver al Inicio"
+  },
+  
+  "guestRegistration": {
+    "title": "Registro de Huéspedes",
+    "registerButton": "Registrar Nuevo Huésped",
+    "newGuestTitle": "Registrar Datos del Huésped",
+    "finishButton": "Finalizar Registro"
+  }
 } 
