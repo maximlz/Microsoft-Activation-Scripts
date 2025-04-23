@@ -14,12 +14,19 @@
   "email": "Sähköposti",
   "countryResidence": "Asuinmaa",
   "residenceAddress": "Asuinosoite",
+  "apartmentNumber": "Huoneisto/Asunto",
   "city": "Kaupunki",
   "postcode": "Postinumero",
   "visitDate": "Käyntipäivä",
   "submitButton": "Rekisteröi vieras",
   "choosePlaceholder": "Valitse...",
   "loadingPlaceholder": "Ladataan...",
+  "placeholders": {
+    "selectCountry": "Valitse maa...",
+    "selectSex": "Valitse sukupuoli...",
+    "selectDocType": "Valitse asiakirjatyyppi...",
+    "streetAddressOnly": "Syötä katuosoite ja numero"
+  },
   "sexOptions": {
     "Female": "Nainen",
     "Male": "Mies",

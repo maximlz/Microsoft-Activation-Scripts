@@ -14,12 +14,19 @@
   "email": "E-mail",
   "countryResidence": "Pays de résidence",
   "residenceAddress": "Adresse de résidence",
+  "apartmentNumber": "Appartement/Bureau",
   "city": "Ville",
   "postcode": "Code postal",
   "visitDate": "Date de la visite",
   "submitButton": "Enregistrer l'invité",
   "choosePlaceholder": "Choisir...",
   "loadingPlaceholder": "Chargement...",
+  "placeholders": {
+    "selectCountry": "Sélectionner un pays...",
+    "selectSex": "Sélectionner le sexe...",
+    "selectDocType": "Sélectionner le type de document...",
+    "streetAddressOnly": "Entrez la rue et le numéro"
+  },
   "sexOptions": {
     "Female": "Femme",
     "Male": "Homme",

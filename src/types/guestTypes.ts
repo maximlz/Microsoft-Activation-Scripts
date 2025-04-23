@@ -63,6 +63,7 @@ export interface IGuestFormShape {
   email: string;
   countryResidence: string;
   residenceAddress: string;
+  apartmentNumber?: string;
   city: string;
   postcode: string;
   visitDate: string;

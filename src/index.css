@@ -159,10 +159,12 @@ a:hover {
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f4f6f8; /* Light grey background */
 }
 
 h1 {
@@ -203,5 +205,611 @@ button:focus-visible {
 }
 
 .required-star {
-    color: red;
+  color: red;
+  margin-left: 4px; /* Add some space before the star */
+}
+
+/* ===== Стили для GuestForm ===== */
+.guest-form-container {
+    padding: 16px 24px; /* Соответствует sx={{ p: { xs: 2, sm: 3 } }} */
+    margin-top: 0;
+    border: none;
+    /* Будет использоваться как className для Container component={Paper} */
+}
+
+.guest-form-box {
+    margin-top: 8px; /* Соответствует sx={{ mt: 1 }} */
+}
+
+.guest-form-submit-box {
+    margin-top: 32px; /* Соответствует sx={{ mt: 4 }} */
+    display: flex;
+    justify-content: flex-end;
+}
+
+.guest-form-submit-button {
+    min-width: 120px; /* Соответствует sx={{ minWidth: 120 }} */
+}
+
+/* Можно добавить медиа-запросы для адаптивного padding контейнера, если нужно */
+/* @media (min-width: 600px) {
+    .guest-form-container {
+        padding: 24px;
+    }
+} */
+/* ===== Конец стилей для GuestForm ===== */
+
+/* ===== Стили для GuestRegistrationPage ===== */
+.registration-page-container {
+    margin-top: 32px; /* mt: 4 */
+    margin-bottom: 32px; /* mb: 4 */
+}
+
+.registration-page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px; /* mb: 4 */
+    padding-bottom: 16px; /* pb: 2 */
+    border-bottom: 1px solid rgba(0, 0, 0, 0.12); /* theme.palette.divider (приблизительно) */
+}
+
+.registration-page-title {
+    font-weight: bold;
+}
+
+.registration-card {
+    margin-bottom: 32px; /* mb: 4 */
+    border-radius: 8px; /* borderRadius: 2 */
+    overflow: hidden;
+    position: relative;
+    /* elevation: 3; - эмуляция через box-shadow, если нужно */
+    box-shadow: 0px 3px 3px -2px rgba(0,0,0,0.2), 0px 3px 4px 0px rgba(0,0,0,0.14), 0px 1px 8px 0px rgba(0,0,0,0.12);
+}
+
+.registration-card-header-bar {
+    height: 8px;
+    width: 100%;
+}
+
+.registration-card-header-bar-primary {
+    background-color: #1976d2; /* theme.palette.primary.main */
+}
+
+.registration-card-header-bar-success {
+    background-color: #2e7d32; /* theme.palette.success.main */
+}
+
+.registration-card-header-bar-info {
+    background-color: #0288d1; /* theme.palette.info.main */
+}
+
+.registration-card-content {
+    padding: 24px; /* p: 3 */
+}
+
+.registration-card-title {
+    display: flex;
+    align-items: center;
+    margin-bottom: 24px; /* mb: 3 */
+    /* color устанавливается через специфичные классы ниже */
+}
+
+.registration-card-title-icon {
+    margin-right: 8px; /* mr: 1 */
+}
+
+.registration-card-title-primary {
+    color: #1976d2; /* theme.palette.primary.main */
+}
+
+.registration-card-title-success {
+    color: #2e7d32; /* theme.palette.success.main */
+}
+
+.registration-card-title-info {
+    color: #0288d1; /* theme.palette.info.main */
+}
+
+.registration-details-box {
+    display: flex;
+    align-items: center;
+    margin-bottom: 16px; /* mb: 2 */
+}
+
+.registration-details-icon {
+    margin-right: 8px; /* mr: 1 */
+    color: rgba(0, 0, 0, 0.54); /* theme.palette.text.secondary */
+}
+
+.guest-list {
+    background-color: #fff; /* theme.palette.background.paper */
+    border-radius: 4px; /* borderRadius: 1 */
+    border: 1px solid rgba(0, 0, 0, 0.12); /* theme.palette.divider */
+}
+
+.guest-list-item {
+    padding-top: 12px; /* py: 1.5 */
+    padding-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.guest-info-container {
+    display: flex;
+    align-items: center;
+    flex-grow: 1;
+    margin-right: 8px; /* mr: 1 */
+}
+
+.guest-avatar {
+    background-color: #64b5f6; /* theme.palette.primary.light */
+    margin-right: 16px; /* mr: 2 */
+}
+
+.guest-name-chip-container {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px; /* gap: 1 */
+}
+
+.guest-document-text {
+    /* Стили для Typography variant="body2" color="text.secondary" */
+    font-size: 0.875rem;
+    color: rgba(0, 0, 0, 0.54);
+}
+
+.guest-action-buttons {
+    display: flex;
+    flex-shrink: 0;
+}
+
+.guest-action-icon-button {
+    margin-right: 4px; /* mr: 0.5 */
+}
+
+.guest-list-empty-box {
+    background-color: #fff; /* theme.palette.background.paper */
+    padding: 24px; /* p: 3 */
+    border-radius: 4px; /* borderRadius: 1 */
+    border: 1px solid rgba(0, 0, 0, 0.12); /* theme.palette.divider */
+    text-align: center;
+}
+
+.guest-list-empty-text {
+    color: rgba(0, 0, 0, 0.54); /* theme.palette.text.secondary */
+    font-style: italic;
+}
+
+.add-guest-button-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 24px; /* mb: 3 */
+}
+
+.add-guest-button {
+    padding: 12px 32px; /* py: 1.5, px: 4 */
+    border-radius: 8px; /* borderRadius: 2 */
+    font-weight: 500; /* fontWeight: 'medium' */
+}
+
+.guest-form-card-content {
+    padding: 24px; /* p: 3 */
+}
+
+.cancel-edit-button-container {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 24px; /* mt: 3 */
+}
+
+.cancel-edit-button {
+    margin-right: 16px; /* mr: 2 */
+}
+
+.finish-button-container {
+    display: flex;
+    justify-content: center;
+    margin-top: 40px; /* mt: 5 */
+    margin-bottom: 24px; /* mb: 3 */
+}
+
+.finish-button {
+    padding: 12px 32px; /* py: 1.5, px: 4 */
+    border-radius: 8px; /* borderRadius: 2 */
+    font-weight: bold;
+}
+
+/* Стили для состояния загрузки */
+.loading-container {
+    display: flex;
+    justify-content: center;
+    padding-top: 64px; /* pt: 8 */
+    flex-direction: column;
+}
+
+.loading-spinner {
+    margin-bottom: 24px; /* mb: 3 */
+    align-self: center;
+}
+
+.loading-text {
+    align-self: center;
+    /* Стили Typography variant="h6" color="text.secondary" */
+    font-size: 1.25rem;
+    color: rgba(0, 0, 0, 0.54);
+}
+
+/* Стили для состояния ошибки */
+.error-container {
+    margin-top: 48px; /* mt: 6 */
+}
+
+.error-paper {
+    padding: 32px; /* p: 4 */
+    border-radius: 8px; /* borderRadius: 2 */
+    text-align: center;
+    /* elevation: 3; */
+    box-shadow: 0px 3px 3px -2px rgba(0,0,0,0.2), 0px 3px 4px 0px rgba(0,0,0,0.14), 0px 1px 8px 0px rgba(0,0,0,0.12);
+}
+
+.error-alert {
+    margin-bottom: 24px; /* mb: 3 */
+}
+
+.error-return-button {
+    margin-top: 16px; /* mt: 2 */
+}
+
+/* ===== Конец стилей для GuestRegistrationPage ===== */
+
+.container-mt-6 {
+  margin-top: 3rem; /* mt={6} -> 6 * 0.5rem = 3rem */
+}
+
+.box-mb-0 {
+  margin-bottom: 0 !important; /* mb={0} */
+}
+
+.box-centered-loader {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px; /* Примерная высота для центрирования загрузчика */
+}
+
+.box-flex-grow {
+  flex-grow: 1;
+}
+
+.alert-mb-3 {
+  margin-bottom: 1.5rem; /* mb={3} -> 3 * 0.5rem = 1.5rem */
+}
+
+/* RegistrationSuccess.tsx styles */
+.success-page-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 80vh; /* Adjust as needed */
+}
+
+.success-paper {
+  padding: 32px; /* Use theme spacing or specific values */
+  text-align: center;
+}
+
+.success-icon {
+  color: green; /* Or use theme.palette.success.main */
+  font-size: 60px; /* Adjust size */
+  margin-bottom: 16px; /* Spacing */
+}
+
+/* AdminLayout.tsx styles */
+.flex-center-vh-100 {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.container-mt-4 {
+  margin-top: 32px; /* Equivalent to theme.spacing(4) */
+}
+
+.admin-layout-root {
+  display: flex;
+}
+
+/* AppBar не использует className напрямую для этих стилей, мы использовали inline style */
+/* .admin-appbar { */
+  /* width: calc(100% - 240px); */ /* Динамически через style */
+  /* margin-left: 240px; */      /* Динамически через style */
+/* } */
+
+.toolbar-spacer {
+  flex-grow: 1;
+}
+
+.user-email-spacing {
+  margin-right: 16px; /* Equivalent to theme.spacing(2) */
+}
+
+/* Drawer использует classes API, поэтому мы используем глобальные классы для переопределения */
+.admin-drawer-paper {
+  width: 240px;
+  box-sizing: border-box;
+}
+
+.admin-main-content {
+  /* Свойства flexGrow, p, ml, width, transition управляются через sx в AdminLayout.tsx */
+  background-color: #f4f6f8; 
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Новый класс для обертки контента */
+.admin-content-wrapper {
+  width: 100%; /* Занимает 100% ширины родителя (admin-main-content) */
+  max-width: 100%; /* Максимальная ширина тоже 100% */
+  margin-left: auto; /* Оставляем для возможного центрирования в будущем, но при 100% не влияет */
+  margin-right: auto;
+  flex-grow: 1; 
+  display: flex; /* Чтобы DataGrid внутри мог растянуться */
+  flex-direction: column;
+}
+
+/* Стили для таблиц внутри админки - применяются к DataGrid */
+.admin-data-grid {
+    flex-grow: 1; /* Позволяет таблице занять все доступное место в обертке */
+    border: none !important; /* Убираем стандартную рамку DataGrid */
+    /* Можно добавить box-shadow или другие стили контейнера */
+    background-color: #fff; /* Белый фон для таблицы */
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+    /* padding: 16px; Добавлять если нужно */
+}
+
+.admin-footer {
+  padding: 16px; /* Equivalent to theme.spacing(2) */
+  margin-top: auto;
+}
+
+/* GuestForm.tsx styles */
+.divider-centered {
+  text-align: center;
+  color: rgba(0, 0, 0, 0.38); /* Light grey color for divider */
+  background-color: transparent !important; /* Ensure background doesn't interfere */
+  cursor: default !important;
+  pointer-events: none;
+  font-weight: bold;
+}
+
+.guest-form-container {
+  padding: 24px; /* theme.spacing(3) */
+  margin-top: 16px; /* Add some margin */
+}
+
+.guest-form-submit-box {
+  margin-top: 24px; /* theme.spacing(3) */
+  display: flex;
+  justify-content: flex-end;
+}
+
+.container-margin {
+  margin-top: 16px; /* theme.spacing(2) */
+  margin-bottom: 16px; /* theme.spacing(2) */
+}
+
+.alert-margin {
+  margin-bottom: 16px; /* theme.spacing(2) */
+}
+
+/* GuestRegistrationPage.tsx additional styles */
+.container-mt-6 {
+  margin-top: 48px; /* theme.spacing(6) */
+}
+
+.box-p-3 {
+  padding: 24px; /* theme.spacing(3) */
+}
+
+/* Styles that were already using className in GuestRegistrationPage */
+.loading-container {
+  display: flex;
+  flex-direction: column; /* Stack items vertically */
+  justify-content: center;
+  align-items: center;
+  min-height: 80vh;
+}
+
+.loading-spinner {
+  margin-bottom: 16px; /* theme.spacing(2) */
+}
+
+.error-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 80vh;
+  margin-top: 48px; /* theme.spacing(6) */
+}
+
+.error-paper {
+  padding: 32px; /* theme.spacing(4) */
+  text-align: center;
+  max-width: 500px; /* Limit width */
+}
+
+.error-alert {
+  margin-top: 16px; /* theme.spacing(2) */
+  margin-bottom: 24px; /* theme.spacing(3) */
+}
+
+.registration-page-container {
+  /* padding-top: 48px; /* theme.spacing(6) - already handled by container-mt-6 */
+  padding-bottom: 48px; /* Add padding at the bottom */
+}
+
+.registration-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px; /* theme.spacing(4) */
+  flex-wrap: wrap; /* Allow wrapping on smaller screens */
+}
+
+.registration-card {
+  margin-bottom: 32px; /* theme.spacing(4) */
+  overflow: visible; /* Ensure shadows aren't clipped if needed */
+}
+
+.registration-card-header-bar {
+  height: 8px; 
+  border-top-left-radius: inherit; /* Match card radius */
+  border-top-right-radius: inherit;
+}
+
+.registration-card-header-bar-primary {
+  background-color: #1976d2; /* theme.palette.primary.main */
+}
+
+.registration-card-header-bar-success {
+  background-color: #2e7d32; /* theme.palette.success.main */
+}
+
+.registration-card-header-bar-info {
+  background-color: #0288d1; /* theme.palette.info.main */
+}
+
+.registration-card-content {
+  padding: 24px; /* theme.spacing(3) */
+}
+
+.registration-card-title {
+  display: flex;
+  align-items: center;
+  margin-bottom: 24px; /* theme.spacing(3) */
+  font-weight: 500;
+}
+
+.registration-card-title-primary {
+  color: #1976d2; /* theme.palette.primary.main */
+}
+.registration-card-title-success {
+  color: #2e7d32; /* theme.palette.success.main */
+}
+.registration-card-title-info {
+  color: #0288d1; /* theme.palette.info.main */
+}
+
+.registration-card-title-icon {
+  margin-right: 8px; /* theme.spacing(1) */
+  vertical-align: middle;
+}
+
+.registration-details-box {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px; /* theme.spacing(2) */
+}
+
+.box-mb-0 {
+    margin-bottom: 0 !important;
+}
+
+.registration-details-icon {
+  margin-right: 12px; /* More space for icons */
+  color: #757575; /* theme.palette.text.secondary */
+}
+
+.box-centered-loader {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.guest-list {
+  padding: 0;
+}
+
+.guest-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 0; /* Adjust padding */
+  flex-wrap: wrap; /* Allow wrapping for actions */
+}
+
+.guest-info-container {
+  display: flex;
+  align-items: center;
+  flex-grow: 1;
+  margin-right: 16px; /* Space before action buttons */
+}
+
+.guest-avatar {
+  margin-right: 16px; /* theme.spacing(2) */
+  background-color: #1976d2; /* theme.palette.primary.main */
+}
+
+.box-flex-grow {
+    flex-grow: 1;
+}
+
+.guest-name-chip-container {
+  display: flex;
+  align-items: center;
+  gap: 8px; /* Space between name and chip */
+  margin-bottom: 4px;
+}
+
+.guest-action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0px; /* Reduced gap between buttons */
+}
+
+.guest-list-empty-box {
+  padding: 32px; /* theme.spacing(4) */
+  text-align: center;
+  border: 1px dashed #bdbdbd; /* Dashed border */
+  border-radius: 4px; /* theme.shape.borderRadius */
+  margin-top: 16px;
+}
+
+.guest-list-empty-text {
+  color: #757575; /* theme.palette.text.secondary */
+}
+
+.add-guest-button-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px; /* Spacing after guest list/card */
+  margin-bottom: 32px;
+}
+
+.guest-form-card-content {
+  padding: 24px; /* theme.spacing(3) */
+}
+
+.alert-mb-3 {
+    margin-bottom: 24px !important; /* theme.spacing(3) */
+}
+
+.cancel-edit-button-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px; /* theme.spacing(2) */
+}
+
+.finish-button-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 32px; /* theme.spacing(4) */
+  padding-top: 24px; /* theme.spacing(3) */
+  border-top: 1px solid #e0e0e0; /* Separator line */
 }

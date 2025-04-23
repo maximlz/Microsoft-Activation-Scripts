@@ -329,6 +329,7 @@ const CountriesManager: React.FC = () => {
 
             <Paper sx={{ height: '100%', width: '100%' }}>
                 <DataGrid
+                    className="admin-data-grid"
                     rows={countries}
                     columns={columns}
                     loading={isLoading}

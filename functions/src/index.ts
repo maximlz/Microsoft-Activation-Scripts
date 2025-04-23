@@ -54,13 +54,11 @@ interface IGuestFormData {
 initializeApp();
 const db = getFirestore();
 
+// --- Cloud Function: createGuest --- 
 interface CreateGuestData {
-  // Ожидаем получить объект, который уже содержит все поля, 
-  // включая bookingId и bookingConfirmationCode, подготовленные на клиенте
   guestData: IGuestFormData; 
 }
 
-// Используем импортированный onCall из v2
 export const createGuest = onCall(
   // Для v2 функции обработчик принимает объект запроса
   async (request): Promise<{ success: boolean; guestId?: string; error?: string }> => {
@@ -144,6 +142,111 @@ export const createGuest = onCall(
       throw new HttpsError(
         "internal", 
         "An internal error occurred while creating the guest.",
+        error.message
+      );
+    }
+  }
+);
+
+// --- Cloud Function: updateGuest --- 
+interface UpdateGuestData {
+  guestId: string;
+  guestData: Partial<IGuestFormData>;
+}
+
+export const updateGuest = onCall(
+  async (request): Promise<{ success: boolean; error?: string }> => {
+    const { guestId, guestData } = request.data as UpdateGuestData;
+
+    logger.info(`Attempting to update guest: ${guestId}`);
+
+    // 1. Валидация входных данных
+    if (!guestId || !guestData) {
+      logger.error("Update failed: Missing guestId or guestData", request.data);
+      throw new HttpsError("invalid-argument", "Required data (guestId and guestData) is missing.");
+    }
+
+    // Запрещаем изменение bookingId и bookingConfirmationCode при обновлении
+    if (guestData.bookingId || guestData.bookingConfirmationCode) {
+      logger.error(`Update failed for ${guestId}: Attempted to modify bookingId or bookingConfirmationCode.`);
+      throw new HttpsError("invalid-argument", "Updating bookingId or bookingConfirmationCode is not allowed.");
+    }
+
+    try {
+      const guestRef = db.collection("guests").doc(guestId);
+      const guestSnap = await guestRef.get();
+
+      // 2. Проверка существования гостя
+      if (!guestSnap.exists) {
+        logger.error(`Update failed: Guest not found for guestId: ${guestId}`);
+        throw new HttpsError("not-found", `Guest with ID ${guestId} not found.`);
+      }
+
+      // 3. Обновляем документ
+      await guestRef.update({
+        ...guestData,
+        timestampUpdated: FieldValue.serverTimestamp()
+      });
+
+      logger.info(`Successfully updated guest ${guestId}`);
+      return { success: true };
+
+    } catch (error: any) {
+      logger.error(`Error updating guest ${guestId}:`, error);
+      if (error instanceof HttpsError) {
+        throw error;
+      }
+      throw new HttpsError(
+        "internal", 
+        "An internal error occurred while updating the guest.",
+        error.message
+      );
+    }
+  }
+);
+
+// --- Cloud Function: deleteGuest --- 
+interface DeleteGuestData {
+  guestId: string;
+}
+
+export const deleteGuest = onCall(
+  async (request): Promise<{ success: boolean; error?: string }> => {
+    const { guestId } = request.data as DeleteGuestData;
+
+    logger.info(`Attempting to delete guest: ${guestId}`);
+
+    // 1. Валидация входных данных
+    if (!guestId) {
+      logger.error("Delete failed: Missing guestId", request.data);
+      throw new HttpsError("invalid-argument", "Required data (guestId) is missing.");
+    }
+
+    try {
+      const guestRef = db.collection("guests").doc(guestId);
+      const guestSnap = await guestRef.get();
+
+      // 2. Проверка существования гостя (опционально)
+      if (!guestSnap.exists) {
+        logger.warn(`Delete request for non-existent guestId: ${guestId}`);
+        // Можно вернуть успех или ошибку
+        // return { success: true }; 
+      }
+      
+      // 3. Удаляем документ
+      await guestRef.delete();
+      
+      logger.info(`Successfully deleted guest ${guestId}`);
+      return { success: true };
+
+    } catch (error: any) {
+      logger.error(`Error deleting guest ${guestId}:`, error);
+      if (error instanceof HttpsError) {
+        throw error;
+      }
+      throw new HttpsError(
+        "internal", 
+        "An internal error occurred while deleting the guest.",
         error.message
       );
     }

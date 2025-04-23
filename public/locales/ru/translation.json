@@ -14,12 +14,19 @@
   "email": "Электронная Почта",
   "countryResidence": "Страна Проживания",
   "residenceAddress": "Адрес Проживания",
+  "apartmentNumber": "Квартира/Офис",
   "city": "Город",
   "postcode": "Почтовый Индекс",
   "visitDate": "Дата Визита",
   "submitButton": "Зарегистрировать Гостя",
   "choosePlaceholder": "Выбрать...",
   "loadingPlaceholder": "Загрузка...",
+  "placeholders": {
+    "selectCountry": "Выбрать страну...",
+    "selectSex": "Выбрать пол...",
+    "selectDocType": "Выбрать тип документа...",
+    "streetAddressOnly": "Введите улицу и номер дома"
+  },
   "sexOptions": {
     "Female": "Женский",
     "Male": "Мужской",
@@ -67,6 +74,7 @@
     "title": "Регистрация Гостей",
     "registerButton": "Зарегистрировать Нового Гостя",
     "newGuestTitle": "Регистрация Данных Гостя",
+    "editGuestTitle": "Редактирование Данных Гостя",
     "finishButton": "Завершить Регистрацию",
     "loading": "Загрузка информации о регистрации...",
     "error": "Ошибка",
@@ -80,6 +88,13 @@
     "unnamedGuest": "Гость Без Имени",
     "noGuests": "Для этого бронирования пока не зарегистрировано ни одного гостя.",
     "cancel": "Отмена",
-    "document": "Документ"
+    "document": "Документ",
+    "editGuest": "Редактировать Гостя",
+    "deleteGuest": "Удалить Гостя",
+    "deleteConfirmTitle": "Подтвердить Удаление",
+    "deleteConfirmMessage": "Вы уверены, что хотите удалить этого гостя? Это действие нельзя будет отменить.",
+    "createSuccess": "Гость успешно добавлен!",
+    "updateSuccess": "Гость успешно обновлен!",
+    "deleteSuccess": "Гость успешно удален!"
   }
 } 

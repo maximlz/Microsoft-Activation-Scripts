@@ -360,6 +360,7 @@ const PropertyManagement: React.FC = () => {
             {/* Используем DataGrid вместо Table */}
              <Paper sx={{ height: '100%', width: '100%' }}>
                 <DataGrid
+                    className="admin-data-grid"
                     rows={properties} // Данные
                     columns={columns} // Определения колонок
                     loading={isLoading} // Индикатор загрузки
@@ -380,7 +381,7 @@ const PropertyManagement: React.FC = () => {
                             showQuickFilter: true, // Включаем быстрый поиск
                         },
                     }}
-                    autoHeight={false} // Занимаем доступную высоту Paper
+                    autoHeight={false}
                     disableRowSelectionOnClick // Отключаем выделение строки по клику
                     // getRowClassName можно использовать для стилизации строк, если нужно
                      // localeText можно использовать для перевода текста DataGrid

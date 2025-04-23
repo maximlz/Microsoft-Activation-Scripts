@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { collection, addDoc, getDocs, Timestamp, QuerySnapshot, DocumentData, doc, updateDoc, deleteDoc, query, orderBy, where } from 'firebase/firestore';
-import { db } from '../config/firebaseConfig'; // Исправленный путь
+import { db } from '../config/firebaseConfig';
 import { IBooking, IBookingWithId, IPropertyWithId, IGuestFormDataWithId, IGuestFormData } from '../types/guestTypes';
-import { generateUniqueToken } from '../utils/tokenGenerator'; // Предполагаем, что будет такой файл
-// Импорты для модального окна MUI (предполагаем использование MUI)
+import { generateUniqueToken } from '../utils/tokenGenerator';
+import { getFunctions, httpsCallable } from "firebase/functions";
 import {
     Button,
     Dialog,
@@ -14,28 +14,33 @@ import {
     TextField,
     CircularProgress,
     Box,
-    Alert, // Для отображения ошибок
-    Snackbar, // <-- Импорт Snackbar
-    IconButton, // <-- Для кнопки-иконки копирования
-    Select, // <-- Импорт Select
-    MenuItem, // <-- Импорт MenuItem
-    FormControl, // <-- Импорт FormControl
-    InputLabel, // <-- Импорт InputLabel
-    SelectChangeEvent, // <-- Импорт типа события для Select
-    Paper, // <-- Импорт Paper
-    Typography, // <-- Импорт Typography
-    Link, // <-- Импорт Link для ссылки
-    Grid, // <-- Используем Grid для расположения полей
-    List, // <-- Для списка гостей
-    ListItem, // <-- Для списка гостей
-    ListItemText // <-- Для списка гостей
+    Alert,
+    Snackbar,
+    IconButton,
+    Select,
+    MenuItem,
+    FormControl,
+    InputLabel,
+    SelectChangeEvent,
+    Paper,
+    Typography,
+    Link,
+    Grid,
+    List,
+    ListItemText,
+    ListItemButton,
+    ListItemIcon
 } from '@mui/material';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy'; // <-- Иконка копирования
-import EditIcon from '@mui/icons-material/Edit'; // <-- Иконка редактирования
-import DeleteIcon from '@mui/icons-material/Delete'; // <-- Иконка удаления
-// Импорты для DataGrid
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import { DataGrid, GridColDef, GridToolbar, GridActionsCellItem, GridSortModel } from '@mui/x-data-grid';
-import { format } from 'date-fns'; // Для форматирования дат
+import { format } from 'date-fns';
+import { useTranslation } from 'react-i18next';
+import AddIcon from '@mui/icons-material/Add';
+import RegistrationDetailsModal from '../admin/RegistrationDetailsModal';
 
 // --- Начало Заготовки для модального окна --- 
 // (В идеале вынести в отдельный файл, например, AddBookingModal.tsx)
@@ -45,9 +50,11 @@ interface AddBookingModalProps {
     onSave: (bookingData: Omit<IBooking, 'registrationToken' | 'createdAt' | 'mainGuestName' | 'guestCount' | 'notes'>, bookingId?: string) => Promise<void>;
     isSaving: boolean;
     initialData?: IBookingWithId | null;
+    isViewMode?: boolean; // <-- Добавляем проп для режима просмотра
+    onGuestClick: (guestId: string) => void; // <-- Новый проп для клика по гостю
 }
 
-const AddBookingModal: React.FC<AddBookingModalProps> = ({ open, onClose, onSave, isSaving, initialData }) => {
+const AddBookingModal: React.FC<AddBookingModalProps> = ({ open, onClose, onSave, isSaving, initialData, isViewMode, onGuestClick }) => {
     const [formData, setFormData] = useState<Partial<Omit<IBooking, 'registrationToken' | 'createdAt' | 'mainGuestName' | 'guestCount' | 'notes'> & { id?: string }>>({});
     const [formError, setFormError] = useState<string | null>(null);
     const [properties, setProperties] = useState<IPropertyWithId[]>([]);
@@ -150,11 +157,13 @@ const AddBookingModal: React.FC<AddBookingModalProps> = ({ open, onClose, onSave
     }, [open, isEditMode, formData.confirmationCode]);
 
     const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        if (isViewMode) return; // Запрещаем изменение в режиме просмотра
         const { name, value } = event.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
     const handleSelectChange = (event: SelectChangeEvent<string>) => {
+        if (isViewMode) return; // Запрещаем изменение в режиме просмотра
         const { name, value } = event.target;
         setFormData(prev => ({ ...prev, [name]: value as IBooking['status'] }));
     };
@@ -184,9 +193,13 @@ const AddBookingModal: React.FC<AddBookingModalProps> = ({ open, onClose, onSave
         }
     };
 
+    const handleInternalGuestClick = (guestId: string) => {
+        onGuestClick(guestId); // Вызываем колбэк, переданный из родителя
+    };
+
     return (
         <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-            <DialogTitle>{isEditMode ? 'Edit Booking' : 'Add New Booking'}</DialogTitle>
+            <DialogTitle>{isViewMode ? 'View Booking Details' : (!!initialData ? 'Edit Booking' : 'Add New Booking')}</DialogTitle>
             <DialogContent>
                 {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
                 {propertiesError && <Alert severity="warning" sx={{ mb: 2 }}>{`Warning: ${propertiesError}`}</Alert>}
@@ -194,7 +207,7 @@ const AddBookingModal: React.FC<AddBookingModalProps> = ({ open, onClose, onSave
                 <Grid container spacing={2}>
                     <Grid item xs={12} md={6}>
                         <Typography variant="subtitle1" gutterBottom>Booking Details</Typography>
-                        <FormControl fullWidth margin="dense" required disabled={loadingProperties}>
+                        <FormControl fullWidth margin="dense" required disabled={loadingProperties || isViewMode}>
                             <InputLabel id="property-name-select-label">Property Name</InputLabel>
                             <Select
                                 labelId="property-name-select-label"
@@ -203,6 +216,7 @@ const AddBookingModal: React.FC<AddBookingModalProps> = ({ open, onClose, onSave
                                 value={formData.propertyName || ''}
                                 label="Property Name"
                                 onChange={handleSelectChange}
+                                readOnly={isViewMode}
                             >
                                 {loadingProperties && (
                                     <MenuItem value="" disabled>
@@ -232,7 +246,7 @@ const AddBookingModal: React.FC<AddBookingModalProps> = ({ open, onClose, onSave
                             onChange={handleChange}
                             required
                             InputProps={{
-                                readOnly: isEditMode,
+                                readOnly: true,
                             }}
                             helperText={!isEditMode ? "Generated automatically" : "Cannot be changed"}
                         />
@@ -248,6 +262,7 @@ const AddBookingModal: React.FC<AddBookingModalProps> = ({ open, onClose, onSave
                                 value={formData.checkInDate || ''}
                                 onChange={handleChange}
                                 required
+                                InputProps={{ readOnly: isViewMode }}
                             />
                             <TextField
                                 margin="dense"
@@ -259,10 +274,11 @@ const AddBookingModal: React.FC<AddBookingModalProps> = ({ open, onClose, onSave
                                 value={formData.checkOutDate || ''}
                                 onChange={handleChange}
                                 required
+                                InputProps={{ readOnly: isViewMode }}
                             />
                         </Box>
 
-                        <FormControl fullWidth margin="dense" required>
+                        <FormControl fullWidth margin="dense" required disabled={isViewMode}>
                             <InputLabel id="booking-status-select-label">Booking Status</InputLabel>
                             <Select
                                 labelId="booking-status-select-label"
@@ -270,6 +286,7 @@ const AddBookingModal: React.FC<AddBookingModalProps> = ({ open, onClose, onSave
                                 value={formData.status || ''}
                                 label="Booking Status"
                                 onChange={handleSelectChange}
+                                readOnly={isViewMode}
                             >
                                 <MenuItem value="pending">Pending</MenuItem>
                                 <MenuItem value="completed">Completed</MenuItem>
@@ -285,14 +302,23 @@ const AddBookingModal: React.FC<AddBookingModalProps> = ({ open, onClose, onSave
                             {!loadingGuests && !guestsError && (
                                 <Paper variant="outlined" sx={{ maxHeight: 300, overflow: 'auto' }}>
                                     {associatedGuests.length > 0 ? (
-                                        <List dense>
+                                        // Используем List с ListItemButton
+                                        <List dense disablePadding> 
                                             {associatedGuests.map(guest => (
-                                                <ListItem key={guest.id}>
+                                                <ListItemButton 
+                                                    key={guest.id} 
+                                                    onClick={() => handleInternalGuestClick(guest.id)}
+                                                    // Добавляем divider для разделения
+                                                    divider 
+                                                >
+                                                    <ListItemIcon sx={{ minWidth: 32 }}> {/* Опциональная иконка */} 
+                                                        <AccountCircleIcon fontSize="small" color="action" />
+                                                    </ListItemIcon>
                                                     <ListItemText
                                                         primary={`${guest.firstName || ''} ${guest.lastName || ''}`.trim() || 'Unnamed Guest'}
                                                         secondary={guest.email || 'No email'}
                                                     />
-                                                </ListItem>
+                                                </ListItemButton>
                                             ))}
                                         </List>
                                     ) : (
@@ -307,14 +333,16 @@ const AddBookingModal: React.FC<AddBookingModalProps> = ({ open, onClose, onSave
                 </Grid>
             </DialogContent>
             <DialogActions>
-                <Button onClick={onClose} disabled={isSaving}>Cancel</Button>
-                <Button
-                    onClick={handleSaveClick}
-                    disabled={isSaving || loadingProperties || (properties.length === 0 && !propertiesError) || loadingGuests}
-                    variant="contained"
-                >
-                    {isSaving ? <CircularProgress size={24} /> : (isEditMode ? 'Save Changes' : 'Save Booking')}
-                </Button>
+                <Button onClick={onClose} disabled={isSaving && !isViewMode}>Cancel</Button>
+                {!isViewMode && (
+                    <Button
+                        onClick={handleSaveClick}
+                        disabled={isSaving || loadingProperties || (properties.length === 0 && !propertiesError) || loadingGuests}
+                        variant="contained"
+                    >
+                        {isSaving ? <CircularProgress size={24} /> : (!!initialData ? 'Save Changes' : 'Save Booking')}
+                    </Button>
+                )}
             </DialogActions>
         </Dialog>
     );
@@ -378,6 +406,7 @@ const formatNullableTimestamp = (ts: Timestamp | undefined | null): string => {
 const defineColumns = (
     getLinkFunc: (token: string) => string,
     copyHandler: (token: string) => void,
+    viewHandler: (id: string) => void,
     editHandler: (id: string) => void,
     deleteHandler: (id: string) => void
 ): GridColDef<IBookingWithId>[] => [
@@ -478,11 +507,17 @@ const defineColumns = (
         field: 'actions',
         type: 'actions',
         headerName: 'Actions',
-        width: 100,
+        width: 130,
         cellClassName: 'actions',
         getActions: ({ id }) => {
             const stringId = id as string;
             return [
+                <GridActionsCellItem
+                    icon={<VisibilityIcon />}
+                    label="View"
+                    onClick={() => viewHandler(stringId)}
+                    color="inherit"
+                />,
                 <GridActionsCellItem
                     icon={<EditIcon />}
                     label="Edit"
@@ -502,8 +537,13 @@ const defineColumns = (
 ];
 
 const bookingsCollectionRef = collection(db, 'bookings');
+// Получаем экземпляр Functions
+const functions = getFunctions();
+// Создаем callable-ссылку на функцию updateGuest
+const updateGuestCallable = httpsCallable<{ guestId: string; guestData: Partial<IGuestFormData> }, { success: boolean; error?: string }>(functions, 'updateGuest');
 
 const BookingManagement: React.FC = () => {
+    const { t } = useTranslation();
     const [bookings, setBookings] = useState<IBookingWithId[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -515,7 +555,11 @@ const BookingManagement: React.FC = () => {
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [bookingToDelete, setBookingToDelete] = useState<string | null>(null);
     const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 10 }); // Состояние для пагинации
-
+    const [isViewMode, setIsViewMode] = useState(false); // <-- Новое состояние для режима просмотра
+    // <-- Новые состояния для модального окна деталей гостя -->
+    const [isGuestDetailsModalOpen, setIsGuestDetailsModalOpen] = useState(false);
+    const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
+    
     // Возвращаем fetchBookings в область видимости компонента и оборачиваем в useCallback
     const fetchBookings = useCallback(async (showLoading = true) => {
         console.log("fetchBookings called, showLoading:", showLoading);
@@ -555,13 +599,24 @@ const BookingManagement: React.FC = () => {
 
     const handleAddBookingClick = () => {
         setEditingBooking(null);
+        setIsViewMode(false); // Убедимся, что режим просмотра выключен при добавлении
         setIsModalOpen(true);
+    };
+
+    const handleViewAction = (id: string) => {
+        const bookingToView = bookings.find(b => b.id === id);
+        if (bookingToView) {
+            setEditingBooking(bookingToView); // Используем то же состояние, что и для редактирования
+            setIsViewMode(true); // Включаем режим просмотра
+            setIsModalOpen(true);
+        }
     };
 
     const handleEditAction = (id: string) => {
         const bookingToEdit = bookings.find(b => b.id === id);
         if (bookingToEdit) {
             setEditingBooking(bookingToEdit);
+            setIsViewMode(false); // Убедимся, что режим просмотра выключен при редактировании
             setIsModalOpen(true);
         }
     };
@@ -569,6 +624,7 @@ const BookingManagement: React.FC = () => {
     const handleCloseModal = () => {
         setIsModalOpen(false);
         setEditingBooking(null);
+        setIsViewMode(false); // Сбрасываем режим просмотра при закрытии
     };
 
     const handleSaveBooking = async (bookingData: Omit<IBooking, 'registrationToken' | 'createdAt'>, bookingId?: string) => {
@@ -652,8 +708,89 @@ const BookingManagement: React.FC = () => {
         }
     };
 
-    // --- ВЫЗЫВАЕМ defineColumns ЗДЕСЬ, ПОСЛЕ ОПРЕДЕЛЕНИЯ ОБРАБОТЧИКОВ ---
-    const columns = defineColumns(getRegistrationLink, handleCopyLink, handleEditAction, handleDeleteAction);
+    // <-- Новый обработчик для открытия деталей гостя -->
+    const handleOpenGuestDetails = (guestId: string) => {
+        console.log(`Opening details for guest: ${guestId}, isViewMode (booking): ${isViewMode}`);
+        setSelectedGuestId(guestId);
+        setIsGuestDetailsModalOpen(true);
+    };
+
+    const handleCloseGuestDetailsModal = () => {
+        setIsGuestDetailsModalOpen(false);
+        setSelectedGuestId(null);
+    };
+
+    // --- Обновленный обработчик сохранения гостя ---
+    const handleSaveGuestRegistration = async (id: string, data: IGuestFormData) => {
+        if (!id) return;
+        setError(null); // Сбрасываем общую ошибку (если есть)
+
+        // Создаем объект с данными для Cloud Function, исключая потенциально лишние поля
+        const guestDataToUpdate: Partial<IGuestFormData> = {
+            firstName: data.firstName,
+            lastName: data.lastName,
+            secondLastName: data.secondLastName,
+            birthDate: data.birthDate,
+            nationality: data.nationality,
+            sex: data.sex,
+            documentType: data.documentType,
+            documentNumber: data.documentNumber,
+            documentSupNum: data.documentSupNum,
+            phone: data.phone,
+            email: data.email,
+            countryResidence: data.countryResidence,
+            residenceAddress: data.residenceAddress,
+            city: data.city,
+            postcode: data.postcode,
+            visitDate: data.visitDate,
+            countryCode: data.countryCode,
+            // bookingId и bookingConfirmationCode НЕ ДОЛЖНЫ обновляться здесь
+        };
+
+        try {
+            console.log(`Calling updateGuest Cloud Function for guestId: ${id}`);
+            const result = await updateGuestCallable({ guestId: id, guestData: guestDataToUpdate });
+
+            if (result.data.success) {
+                console.log(`Guest ${id} updated successfully.`);
+                setSnackbar({
+                    open: true,
+                    message: t('bookingManagement.guestUpdateSuccess', 'Guest details updated successfully!'),
+                    severity: 'success'
+                });
+                handleCloseGuestDetailsModal();
+                // Опционально: Обновить список гостей в модалке бронирования, если она открыта
+                // Это потребует передачи функции обновления в AddBookingModal или повторного запроса гостей
+                // TODO: Решить, нужно ли немедленное обновление списка гостей в AddBookingModal
+
+                // Опционально: Обновить список бронирований, если данные гостя влияют на отображение
+                // fetchBookings(false); // Например, если mainGuestName как-то вычисляется
+            } else {
+                console.error(`Cloud Function updateGuest failed for ${id}:`, result.data.error);
+                throw new Error(result.data.error || t('bookingManagement.guestUpdateErrorCloud', 'Failed to update guest via Cloud Function.'));
+            }
+
+        } catch (err: any) {
+            console.error(`Error calling updateGuest Cloud Function for ${id}: `, err);
+            // Попытка извлечь сообщение об ошибке из HttpsError
+            const message = err.details?.message || err.message || t('bookingManagement.guestUpdateErrorGeneric', 'An error occurred while updating guest details.');
+            setSnackbar({
+                open: true,
+                message: message,
+                severity: 'error'
+            });
+            // Оставляем модалку открытой при ошибке
+        }
+    };
+
+    // Передаем все обработчики в defineColumns
+    const columns = defineColumns(
+        getRegistrationLink, 
+        handleCopyLink, 
+        handleViewAction,
+        handleEditAction, 
+        handleDeleteAction
+    );
 
     // Начальная сортировка
     const initialSortModel: GridSortModel = [
@@ -664,29 +801,70 @@ const BookingManagement: React.FC = () => {
     ];
 
     return (
-        <Box sx={{ p: 3, height: 'calc(100vh - 64px - 48px - 72px)', width: '100%' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h5" component="h2">Booking Management</Typography>
-                <Button
-                    variant="contained"
-                    onClick={handleAddBookingClick}
-                    disabled={isLoading}
-                >
-                    Add New Booking
-                </Button>
-            </Box>
+        <Box sx={{ height: '75vh', width: '100%' }}>
+            <Typography variant="h4" gutterBottom>
+                {t('bookingManagement.title', 'Booking Management')}
+            </Typography>
+            {/* Кнопка Добавить */} 
+            <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={handleAddBookingClick}
+                sx={{ mb: 2 }}
+            >
+                {t('bookingManagement.addBooking', 'Add Booking')}
+            </Button>
 
-            {/* Показываем общую ошибку загрузки */}
-            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+            {/* Отображение ошибки загрузки */} 
+            {error && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                    {t('bookingManagement.errorLoading', 'Error loading bookings: ')} {error}
+                </Alert>
+            )}
 
-            {/* Модальное окно добавления/редактирования */} 
+            <DataGrid
+                className="admin-data-grid"
+                rows={bookings || []}
+                columns={columns}
+                loading={isLoading}
+                pageSizeOptions={[10, 25, 50, 100]}
+                paginationModel={paginationModel}
+                onPaginationModelChange={setPaginationModel}
+                initialState={{
+                    sorting: {
+                        sortModel: initialSortModel,
+                    },
+                }}
+                slots={{ toolbar: GridToolbar }}
+                slotProps={{
+                    toolbar: {
+                        showQuickFilter: true,
+                    },
+                }}
+                autoHeight={false}
+            />
+
+            {/* Модальное окно */}
             <AddBookingModal
                 open={isModalOpen}
                 onClose={handleCloseModal}
                 onSave={handleSaveBooking}
                 isSaving={isSaving}
                 initialData={editingBooking}
+                isViewMode={isViewMode}
+                onGuestClick={handleOpenGuestDetails} // <-- Передаем новый обработчик
             />
+
+            {/* Модальное окно деталей гостя */}
+            {selectedGuestId && (
+                <RegistrationDetailsModal
+                    open={isGuestDetailsModalOpen}
+                    onClose={handleCloseGuestDetailsModal}
+                    registrationId={selectedGuestId}
+                    isEditMode={!isViewMode} 
+                    onSave={handleSaveGuestRegistration}
+                />
+            )}
 
             {/* Диалог подтверждения удаления */} 
             <ConfirmationDialog
@@ -712,34 +890,6 @@ const BookingManagement: React.FC = () => {
                     {snackbar?.message}
                 </Alert>
             </Snackbar>
-
-             {/* Используем DataGrid */}
-            <Paper sx={{ height: '100%', width: '100%' }}>
-                 <DataGrid
-                    rows={bookings}
-                    columns={columns}
-                    loading={isLoading}
-                    paginationModel={paginationModel}
-                    onPaginationModelChange={setPaginationModel}
-                    pageSizeOptions={[5, 10, 25]}
-                     initialState={{
-                        pagination: {
-                           paginationModel: { page: 0, pageSize: 10 },
-                        },
-                         sorting: {
-                            sortModel: initialSortModel,
-                        },
-                    }}
-                    slots={{ toolbar: GridToolbar }}
-                    slotProps={{
-                        toolbar: {
-                            showQuickFilter: true,
-                        },
-                    }}
-                    autoHeight={false}
-                    disableRowSelectionOnClick
-                />
-            </Paper>
         </Box>
     );
 };

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Box, Typography, Alert, CircularProgress, Paper, Link, Snackbar } from '@mui/material';
+import { Box, Typography, Alert, CircularProgress, Link, Snackbar } from '@mui/material';
 import { DataGrid, GridColDef, GridToolbar, GridActionsCellItem, GridSortModel, GridRowClassNameParams } from '@mui/x-data-grid';
 import { collection, query, orderBy, Timestamp, FirestoreDataConverter, SnapshotOptions, DocumentData, WithFieldValue, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useCollectionData } from 'react-firebase-hooks/firestore';
@@ -39,12 +39,14 @@ export const guestConverter: FirestoreDataConverter<IGuestFormDataWithId> = {
             email: data.email || '',
             countryResidence: data.countryResidence || '',
             residenceAddress: data.residenceAddress || '',
+            apartmentNumber: data.apartmentNumber,
             city: data.city || '',
             postcode: data.postcode || '',
             visitDate: data.visitDate || '',
             countryCode: data.countryCode,
             bookingConfirmationCode: data.bookingConfirmationCode, // <-- Добавляем код бронирования
             timestamp: data.timestamp, // timestamp остается
+            bookingId: data.bookingId 
         } as IGuestFormDataWithId;
     }
 };
@@ -271,34 +273,34 @@ function RegistrationsList() {
     }
 
     return (
-        <Paper sx={{ display: 'flex', flexDirection: 'column', minHeight: 400, height: '100%' /* Занимаем всю высоту Box */ }}>
-            <Typography variant="h5" sx={{ p: 2 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <Typography variant="h5" sx={{ p: 2, pb: 1 }}>
                 {t('registrations.title', 'Guest Registrations')}
             </Typography>
-            <Box sx={{ flexGrow: 1, width: '100%' }}>
-                <StyledDataGrid
-                    rows={guestsData || []}
-                    columns={tableColumns}
-                    loading={loading}
-                    initialState={{
-                        sorting: {
-                            sortModel: initialSortModel,
-                        },
-                    }}
-                    paginationModel={paginationModel}
-                    onPaginationModelChange={setPaginationModel}
-                    pageSizeOptions={[5, 10, 25, 50]}
-                    checkboxSelection
-                    disableRowSelectionOnClick
-                    slots={{ toolbar: GridToolbar }}
-                    slotProps={{
-                        toolbar: {
-                            showQuickFilter: true,
-                        },
-                    }}
-                    getRowClassName={getRowClassName}
-                />
-            </Box>
+            <StyledDataGrid
+                className="admin-data-grid"
+                rows={guestsData || []}
+                columns={tableColumns}
+                loading={loading}
+                initialState={{
+                    sorting: {
+                        sortModel: initialSortModel,
+                    },
+                }}
+                paginationModel={paginationModel}
+                onPaginationModelChange={setPaginationModel}
+                pageSizeOptions={[5, 10, 25, 50]}
+                checkboxSelection
+                disableRowSelectionOnClick
+                slots={{ toolbar: GridToolbar }}
+                slotProps={{
+                    toolbar: {
+                        showQuickFilter: true,
+                    },
+                }}
+                getRowClassName={getRowClassName}
+                autoHeight={false}
+            />
             <RegistrationDetailsModal
                 open={modalOpen}
                 onClose={handleCloseModal}
@@ -306,7 +308,6 @@ function RegistrationsList() {
                 isEditMode={isEditMode}
                 onSave={handleSaveRegistration}
             />
-            {/* Snackbar для уведомлений */} 
             {snackbar && (
                 <Snackbar
                     open={snackbar.open}
@@ -319,7 +320,6 @@ function RegistrationsList() {
                     </Alert>
                 </Snackbar>
             )}
-            {/* Диалог подтверждения удаления */} 
             <ConfirmationDialog
                 open={confirmDialogOpen}
                 onClose={handleCloseConfirmDialog}
@@ -327,7 +327,7 @@ function RegistrationsList() {
                 title={t('registrations.deleteConfirmTitle', 'Confirm Deletion')}
                 message={t('registrations.deleteConfirmMessage', 'Are you sure you want to delete this registration? This action cannot be undone.')}
             />
-        </Paper>
+        </Box>
     );
 }
 

@@ -14,12 +14,19 @@
   "email": "Email",
   "countryResidence": "Paese di Residenza",
   "residenceAddress": "Indirizzo di Residenza",
+  "apartmentNumber": "Interno/Appartamento",
   "city": "Città",
   "postcode": "Codice Postale",
   "visitDate": "Data Visita",
   "submitButton": "Registra Ospite",
   "choosePlaceholder": "Scegli...",
   "loadingPlaceholder": "Caricamento...",
+  "placeholders": {
+    "selectCountry": "Seleziona Paese...",
+    "selectSex": "Seleziona Sesso...",
+    "selectDocType": "Seleziona Tipo Documento...",
+    "streetAddressOnly": "Inserisci via e numero civico"
+  },
   "sexOptions": {
     "Female": "Femmina",
     "Male": "Maschio",

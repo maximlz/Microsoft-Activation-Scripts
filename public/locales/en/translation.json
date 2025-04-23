@@ -14,12 +14,19 @@
   "email": "Email",
   "countryResidence": "Country of Residence",
   "residenceAddress": "Residence Address",
+  "apartmentNumber": "Apt/Suite/Unit",
   "city": "City",
   "postcode": "Postcode",
   "visitDate": "Visit Date",
   "submitButton": "Register Guest",
   "choosePlaceholder": "Choose...",
   "loadingPlaceholder": "Loading...",
+  "placeholders": {
+    "selectCountry": "Select Country...",
+    "selectSex": "Select Sex...",
+    "selectDocType": "Select Document Type...",
+    "streetAddressOnly": "Enter street address and number"
+  },
   "sexOptions": {
     "Female": "Female",
     "Male": "Male",
@@ -67,6 +74,7 @@
     "title": "Guest Registration",
     "registerButton": "Register New Guest",
     "newGuestTitle": "Register Guest Details",
+    "editGuestTitle": "Edit Guest Details",
     "finishButton": "Finish Registration",
     "loading": "Loading registration information...",
     "error": "Error",
@@ -80,6 +88,13 @@
     "unnamedGuest": "Unnamed Guest",
     "noGuests": "No guests registered for this booking yet.",
     "cancel": "Cancel",
-    "document": "Document"
+    "document": "Document",
+    "editGuest": "Edit Guest",
+    "deleteGuest": "Delete Guest",
+    "deleteConfirmTitle": "Confirm Deletion",
+    "deleteConfirmMessage": "Are you sure you want to delete this guest? This action cannot be undone.",
+    "createSuccess": "Guest added successfully!",
+    "updateSuccess": "Guest updated successfully!",
+    "deleteSuccess": "Guest deleted successfully!"
   }
 } 

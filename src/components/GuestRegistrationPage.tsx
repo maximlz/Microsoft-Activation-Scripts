@@ -5,7 +5,7 @@ import { db } from '../config/firebaseConfig';
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { IBooking, IBookingWithId, IGuestFormData, IGuestFormDataWithId, IGuestFormShape } from '../types/guestTypes';
 import GuestForm, { Country } from './GuestForm'; // Импортируем как именованный экспорт
-import { Container, Typography, Box, CircularProgress, Alert, Button, Paper, List, ListItem, Divider, Grid, Card, CardContent, Avatar, Chip, useTheme } from '@mui/material';
+import { Container, Typography, Box, CircularProgress, Alert, Button, Paper, List, ListItem, Divider, Grid, Card, CardContent, Avatar, Chip, IconButton, Tooltip, Snackbar } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from './LanguageSwitcher';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
@@ -14,29 +14,44 @@ import HotelIcon from '@mui/icons-material/Hotel';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import ConfirmationNumberIcon from '@mui/icons-material/ConfirmationNumber';
 import PersonIcon from '@mui/icons-material/Person';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import ConfirmationDialog from './ConfirmationDialog';
 
 // Используем guestConverter из RegistrationsList
 import { guestConverter, formatDateDDMMYYYY } from '../admin/RegistrationsList';
+
+// Тип для состояния Snackbar
+type SnackbarState = { open: boolean; message: string; severity: 'success' | 'error' } | null;
 
 const GuestRegistrationPage: React.FC = () => {
     const { token } = useParams<{ token: string }>();
     const navigate = useNavigate();
     const { t } = useTranslation();
-    const theme = useTheme();
 
     const [bookingDetails, setBookingDetails] = useState<IBookingWithId | null>(null);
     const [registeredGuests, setRegisteredGuests] = useState<IGuestFormDataWithId[]>([]);
     const [isLoadingBooking, setIsLoadingBooking] = useState(true);
-    const [isLoadingGuests, setIsLoadingGuests] = useState(false); // Начинаем загрузку гостей после загрузки брони
+    const [isLoadingGuests, setIsLoadingGuests] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isFinishing, setIsFinishing] = useState(false);
-    const [isFormVisible, setIsFormVisible] = useState(false); // Управляем видимостью формы
-    const [isSavingGuest, setIsSavingGuest] = useState(false); // Индикатор сохранения гостя
+    const [isFormVisible, setIsFormVisible] = useState(false);
+    const [isSavingGuest, setIsSavingGuest] = useState(false);
     const [guestSaveError, setGuestSaveError] = useState<string | null>(null);
-    // Состояние для стран нужно загрузить здесь или передать в GuestForm
     const [countries, setCountries] = useState<Country[]>([]);
     const [loadingCountries, setLoadingCountries] = useState(true);
     const [countriesError, setCountriesError] = useState<string | null>(null);
+
+    // --- Новые состояния для редактирования/удаления ---
+    const [editingGuestId, setEditingGuestId] = useState<string | null>(null);
+    const [editingGuestData, setEditingGuestData] = useState<IGuestFormShape | null>(null);
+    const [deletingGuestId, setDeletingGuestId] = useState<string | null>(null);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    // ----------------------------------------------------
+
+    // --- НОВОЕ состояние для Snackbar --- 
+    const [snackbar, setSnackbar] = useState<SnackbarState>(null);
+    // -------------------------------------
 
     // --- Загрузка стран (аналогично HomePage) ---
     useEffect(() => {
@@ -113,13 +128,13 @@ const GuestRegistrationPage: React.FC = () => {
         } finally {
             setIsLoadingBooking(false);
         }
-    }, [token, t]); // Добавляем t в зависимости
+    }, [token, t]);
 
     useEffect(() => {
         fetchBookingAndGuests();
     }, [fetchBookingAndGuests]);
 
-    // --- Обработчик сохранения гостя (Обновленный) --- 
+    // --- Обработчик сохранения гостя (Обновленный для создания и редактирования) ---
     const handleSaveGuest = async (guestData: IGuestFormShape) => {
         console.log("handleSaveGuest called. Current bookingDetails:", bookingDetails);
         console.log("Confirmation code from bookingDetails:", bookingDetails?.confirmationCode);
@@ -133,47 +148,71 @@ const GuestRegistrationPage: React.FC = () => {
         
         setIsSavingGuest(true);
         setGuestSaveError(null);
+        setSnackbar(null); // Скрываем предыдущие уведомления
 
-        // Готовим данные так же, как раньше (включая bookingId и bookingConfirmationCode)
-        const dataToSave: IGuestFormData = {
-            ...guestData,
-            bookingConfirmationCode: bookingDetails.confirmationCode,
-            bookingId: bookingDetails.id, 
-            // Timestamp теперь будет устанавливаться на сервере, можно убрать отсюда
-            // timestamp: Timestamp.now() // Убрано
-        };
+        const operation = editingGuestId ? 'updateGuest' : 'createGuest';
+        const logPrefix = editingGuestId ? 'Updating' : 'Creating';
+        
+        // --- Изменяем формирование requestData --- 
+        let requestData: any;
+        if (editingGuestId) {
+            // Для обновления отправляем ТОЛЬКО данные из формы + ID
+            requestData = { 
+                guestId: editingGuestId, 
+                // guestData здесь - это только данные из формы (параметр guestData)
+                guestData: guestData 
+            };
+        } else {
+            // Для создания добавляем bookingId и confirmationCode
+            const dataToCreate: IGuestFormData = {
+                ...guestData,
+                bookingConfirmationCode: bookingDetails!.confirmationCode,
+                bookingId: bookingDetails!.id,
+            };
+            requestData = { guestData: dataToCreate };
+        }
+        // ----------------------------------------
 
-        console.log("Attempting to call createGuest function with data:", JSON.stringify({ guestData: dataToSave }, null, 2));
+        console.log(`${logPrefix} guest. ID: ${editingGuestId || 'New'}. Data:`, JSON.stringify(requestData, null, 2));
 
         try {
-            // Получаем ссылку на Cloud Function
-            const functionsInstance = getFunctions(); // Инициализируем Firebase Functions
-            const callCreateGuest = httpsCallable<{ guestData: IGuestFormData }, { success: boolean; guestId?: string; error?: string }>(functionsInstance, 'createGuest');
+            const functionsInstance = getFunctions();
+            type CloudFunctionResponse = { success: boolean; guestId?: string; error?: string };
+            const callCloudFunction = httpsCallable<any, CloudFunctionResponse>(functionsInstance, operation);
 
-            // Вызываем функцию
-            const result = await callCreateGuest({ guestData: dataToSave });
+            const result = await callCloudFunction(requestData);
 
             if (result.data.success) {
-                console.log(`Guest created successfully via Cloud Function. Guest ID: ${result.data.guestId}`);
-                // Успешно сохранено
-                setIsFormVisible(false); // Скрываем форму
-                fetchBookingAndGuests(); // Перезагружаем данные (включая список гостей)
-                // Можно добавить Snackbar об успехе здесь
+                console.log(`Guest ${editingGuestId ? 'updated' : 'created'} successfully. ID: ${editingGuestId || result.data.guestId}`);
+                setIsFormVisible(false);
+                setEditingGuestId(null);
+                setEditingGuestData(null);
+                fetchBookingAndGuests();
+                // Показываем Snackbar успеха
+                setSnackbar({
+                     open: true,
+                     message: t(editingGuestId ? 'guestRegistration.updateSuccess' : 'guestRegistration.createSuccess', 
+                                editingGuestId ? 'Guest updated successfully!' : 'Guest added successfully!'),
+                     severity: 'success'
+                 });
             } else {
-                // Если функция вернула { success: false, error: '...' }
-                console.error("Cloud Function returned error:", result.data.error);
-                setGuestSaveError(result.data.error || 'Failed to save guest information via Cloud Function.');
+                console.error(`Cloud Function (${operation}) returned error:`, result.data.error);
+                const errorMessage = result.data.error || `Failed to ${editingGuestId ? 'update' : 'save'} guest information via Cloud Function.`;
+                setGuestSaveError(errorMessage);
+                 // Показываем Snackbar ошибки (можно использовать ту же message)
+                // setSnackbar({ open: true, message: errorMessage, severity: 'error' });
             }
         } catch (err: any) {
-            console.error("Error calling createGuest function:", err);
-            // Обрабатываем ошибки HttpsError
-            let message = 'Failed to save guest information.';
+             console.error(`Error calling ${operation} function:`, err);
+            let message = `Failed to ${editingGuestId ? 'update' : 'save'} guest information.`;
             if (err.code && err.message) {
                  message = `Error (${err.code}): ${err.message}`;
             } else if (err instanceof Error) {
                 message = err.message;
             }
              setGuestSaveError(message);
+             // Показываем Snackbar ошибки
+             setSnackbar({ open: true, message: message, severity: 'error' });
         } finally {
             setIsSavingGuest(false);
         }
@@ -196,18 +235,96 @@ const GuestRegistrationPage: React.FC = () => {
         }
     };
 
+    // --- Новые обработчики для кнопок --- 
+    const handleEditGuestClick = (guest: IGuestFormDataWithId) => {
+        console.log("Editing guest:", guest);
+        const { id, bookingConfirmationCode, bookingId, timestamp, ...formData } = guest; 
+        setEditingGuestId(id);
+        setEditingGuestData(formData); // Сохраняем данные для формы, включая apartmentNumber
+        setGuestSaveError(null); // Сбрасываем прошлые ошибки формы
+        setIsFormVisible(true); // Показываем форму
+    };
+
+    const handleDeleteGuestClick = (guestId: string) => {
+        console.log("Requesting delete for guest:", guestId);
+        setDeletingGuestId(guestId);
+        setIsDeleteDialogOpen(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!deletingGuestId) return;
+        const guestIdToDelete = deletingGuestId; // Сохраняем ID перед сбросом состояния
+        console.log("Confirming delete for guest:", guestIdToDelete);
+        setIsDeleteDialogOpen(false);
+        setSnackbar(null); // Скрываем предыдущие
+        // Устанавливаем индикатор загрузки (можно добавить новый, если нужно)
+        // setIsDeleting(true); 
+
+        try {
+            // Вызов Cloud Function deleteGuest
+            const functionsInstance = getFunctions();
+            const callDeleteGuest = httpsCallable<{ guestId: string }, { success: boolean; error?: string }>(functionsInstance, 'deleteGuest');
+            const result = await callDeleteGuest({ guestId: guestIdToDelete });
+            
+            if (result.data.success) {
+                console.log(`Guest ${guestIdToDelete} deleted successfully via Cloud Function`);
+                setDeletingGuestId(null); // Сбрасываем ID после успеха
+                fetchBookingAndGuests(); // Обновляем список
+                setSnackbar({
+                    open: true,
+                    message: t('guestRegistration.deleteSuccess', 'Guest deleted successfully!'),
+                    severity: 'success'
+                });
+            } else {
+                console.error("Cloud Function (deleteGuest) returned error:", result.data.error);
+                const errorMessage = result.data.error || 'Failed to delete guest via Cloud Function.';
+                setSnackbar({ open: true, message: errorMessage, severity: 'error' });
+                // ID не сбрасываем, чтобы пользователь видел, что удаление не прошло
+                 setDeletingGuestId(null); // Или сбрасываем в любом случае?
+            }
+
+        } catch (err: any) {
+            console.error(`Error calling deleteGuest function for ${guestIdToDelete}:`, err);
+            let message = 'Failed to delete guest.';
+            if (err.code && err.message) {
+                 message = `Error (${err.code}): ${err.message}`;
+            } else if (err instanceof Error) {
+                message = err.message;
+            }
+            setSnackbar({ open: true, message: message, severity: 'error' });
+            setDeletingGuestId(null); // Сбрасываем ID в любом случае при ошибке
+        } finally {
+             // setIsDeleting(false);
+        }
+    };
+
+    const handleCancelDelete = () => {
+        setIsDeleteDialogOpen(false);
+        setDeletingGuestId(null);
+    };
+
+    const handleCancelEdit = () => {
+        setIsFormVisible(false);
+        setEditingGuestId(null);
+        setEditingGuestData(null);
+        setGuestSaveError(null);
+    }
+
+    // --- НОВЫЙ обработчик закрытия Snackbar ---
+    const handleCloseSnackbar = (_event?: React.SyntheticEvent | Event, reason?: string) => {
+        if (reason === 'clickaway') {
+            return;
+        }
+        setSnackbar(null); // Просто скрываем Snackbar
+    };
+    // -----------------------------------------
+
     // --- Рендеринг --- 
     if (isLoadingBooking || loadingCountries) {
         return (
-            <Container maxWidth="md" sx={{ 
-                display: 'flex', 
-                justifyContent: 'center', 
-                alignItems: 'center', 
-                minHeight: '80vh',
-                flexDirection: 'column'
-            }}>
-                <CircularProgress size={60} sx={{ mb: 3 }} />
-                <Typography variant="h6" color="text.secondary">
+            <Container maxWidth="md" className="loading-container">
+                <CircularProgress size={60} className="loading-spinner" />
+                <Typography variant="h6" color="text.secondary" className="loading-text">
                     {t('guestRegistration.loading', 'Loading registration information...')}
                 </Typography>
             </Container>
@@ -216,16 +333,16 @@ const GuestRegistrationPage: React.FC = () => {
 
     if (error) {
         return (
-            <Container maxWidth="sm" sx={{ mt: 6 }}>
-                <Paper elevation={3} sx={{ p: 4, borderRadius: 2, textAlign: 'center' }}>
+            <Container maxWidth="sm" className="error-container">
+                <Paper elevation={3} className="error-paper">
                     <Typography variant="h5" color="error" gutterBottom>
                         {t('guestRegistration.error', 'Error')}
                     </Typography>
-                    <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>
+                    <Alert severity="error" className="error-alert">{error}</Alert>
                     <Button 
                         variant="contained" 
                         onClick={() => navigate('/')}
-                        sx={{ mt: 2 }}
+                        className="error-return-button"
                     >
                         {t('guestRegistration.returnHome', 'Return to Home')}
                     </Button>
@@ -236,67 +353,41 @@ const GuestRegistrationPage: React.FC = () => {
 
     if (!bookingDetails) { // Дополнительная проверка
         return (
-            <Container maxWidth="sm" sx={{ mt: 6 }}>
+            <Container maxWidth="sm" className="container-mt-6">
                 <Alert severity="warning">Booking details not found.</Alert>
             </Container>
         );
     }
 
     return (
-        <Container maxWidth="md" sx={{ my: 4 }}>
+        <Container maxWidth="md" className="registration-page-container container-mt-6">
             {/* Шапка с языковым переключателем */}
-            <Box sx={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center', 
-                mb: 4,
-                pb: 2,
-                borderBottom: `1px solid ${theme.palette.divider}`
-            }}>
-                <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold' }}>
+            <Box className="registration-page-header">
+                <Typography variant="h4" component="h1" className="registration-page-title">
                     {t('guestRegistration.title', 'Guest Registration')}
                 </Typography>
                 <LanguageSwitcher />
             </Box>
 
             {/* Детали Бронирования */} 
-            <Card 
-                elevation={3} 
-                sx={{ 
-                    mb: 4, 
-                    borderRadius: 2,
-                    overflow: 'hidden',
-                    position: 'relative'
-                }}
-            >
-                <Box sx={{ 
-                    height: '8px', 
-                    width: '100%', 
-                    bgcolor: 'primary.main' 
-                }} />
-                
-                <CardContent sx={{ p: 3 }}>
-                    <Typography variant="h5" gutterBottom sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        mb: 3,
-                        color: 'primary.main'
-                    }}>
-                        <HotelIcon sx={{ mr: 1 }} />
+            <Card elevation={3} className="registration-card">
+                <Box className="registration-card-header-bar registration-card-header-bar-primary" />
+                <CardContent className="registration-card-content">
+                    <Typography variant="h5" gutterBottom className="registration-card-title registration-card-title-primary">
+                        <HotelIcon className="registration-card-title-icon" />
                         {t('guestRegistration.bookingDetails', 'Booking Details')}
                     </Typography>
                     
                     <Grid container spacing={3}>
                         <Grid item xs={12} sm={6}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                                <ConfirmationNumberIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                            <Box className="registration-details-box">
+                                <ConfirmationNumberIcon className="registration-details-icon" />
                                 <Typography>
                                     <strong>{t('guestRegistration.confirmationCode', 'Confirmation Code')}:</strong> {bookingDetails.confirmationCode}
                                 </Typography>
                             </Box>
-                            
-                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                <HotelIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                            <Box className="registration-details-box box-mb-0">
+                                <HotelIcon className="registration-details-icon" />
                                 <Typography>
                                     <strong>{t('guestRegistration.property', 'Property')}:</strong> {bookingDetails.propertyName}
                                 </Typography>
@@ -304,15 +395,14 @@ const GuestRegistrationPage: React.FC = () => {
                         </Grid>
                         
                         <Grid item xs={12} sm={6}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                                <CalendarTodayIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                            <Box className="registration-details-box">
+                                <CalendarTodayIcon className="registration-details-icon" />
                                 <Typography>
                                     <strong>{t('guestRegistration.checkIn', 'Check-in')}:</strong> {formatDateDDMMYYYY(bookingDetails.checkInDate)}
                                 </Typography>
                             </Box>
-                            
-                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                <CalendarTodayIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                            <Box className="registration-details-box box-mb-0">
+                                <CalendarTodayIcon className="registration-details-icon" />
                                 <Typography>
                                     <strong>{t('guestRegistration.checkOut', 'Check-out')}:</strong> {formatDateDDMMYYYY(bookingDetails.checkOutDate)}
                                 </Typography>
@@ -323,55 +413,29 @@ const GuestRegistrationPage: React.FC = () => {
             </Card>
 
             {/* Зарегистрированные Гости */} 
-            <Card 
-                elevation={3} 
-                sx={{ 
-                    mb: 4, 
-                    borderRadius: 2,
-                    overflow: 'hidden'
-                }}
-            >
-                <Box sx={{ 
-                    height: '8px', 
-                    width: '100%', 
-                    bgcolor: 'success.main' 
-                }} />
-                
-                <CardContent sx={{ p: 3 }}>
-                    <Typography variant="h5" gutterBottom sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        mb: 3,
-                        color: 'success.main'
-                    }}>
-                        <PersonIcon sx={{ mr: 1 }} />
+            <Card elevation={3} className="registration-card">
+                <Box className="registration-card-header-bar registration-card-header-bar-success" />
+                <CardContent className="registration-card-content">
+                    <Typography variant="h5" gutterBottom className="registration-card-title registration-card-title-success">
+                        <PersonIcon className="registration-card-title-icon" />
                         {t('guestRegistration.guestsRegistered', 'Guests Registered')}
                     </Typography>
                     
                     {isLoadingGuests ? (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                        <Box className="box-centered-loader box-p-3">
                             <CircularProgress size={30} />
                         </Box>
                     ) : registeredGuests.length > 0 ? (
-                        <List sx={{ 
-                            bgcolor: 'background.paper',
-                            borderRadius: 1,
-                            border: `1px solid ${theme.palette.divider}`
-                        }}>
+                        <List className="guest-list">
                             {registeredGuests.map((guest, index) => (
                                 <React.Fragment key={guest.id}>
-                                    <ListItem sx={{ py: 2 }}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                                            <Avatar 
-                                                sx={{ 
-                                                    bgcolor: 'primary.light',
-                                                    mr: 2
-                                                }}
-                                            >
+                                    <ListItem className="guest-list-item">
+                                        <Box className="guest-info-container">
+                                            <Avatar className="guest-avatar">
                                                 {guest.firstName?.charAt(0) || 'G'}
                                             </Avatar>
-                                            <Box sx={{ flexGrow: 1 }}>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+                                            <Box className="box-flex-grow">
+                                                <Box className="guest-name-chip-container">
                                                     <Typography variant="h6" component="div">
                                                         {`${guest.firstName || ''} ${guest.lastName || ''}`.trim() || t('guestRegistration.unnamedGuest', 'Unnamed Guest')}
                                                     </Typography>
@@ -382,10 +446,32 @@ const GuestRegistrationPage: React.FC = () => {
                                                         color="primary"
                                                     />
                                                 </Box>
-                                                <Typography variant="body2" color="text.secondary">
+                                                <Typography variant="body2" color="text.secondary" className="guest-document-text">
                                                     {`${guest.documentType || t('guestRegistration.documentType', 'Document')}: ${guest.documentNumber || '-'}`}
                                                 </Typography>
                                             </Box>
+                                        </Box>
+                                        <Box className="guest-action-buttons">
+                                            <Tooltip title={t('guestRegistration.editGuest', 'Edit Guest')}>
+                                                <IconButton 
+                                                    size="small" 
+                                                    onClick={() => handleEditGuestClick(guest)} 
+                                                    className="guest-action-icon-button"
+                                                    aria-label="edit guest"
+                                                >
+                                                    <EditIcon fontSize="small" />
+                                                </IconButton>
+                                            </Tooltip>
+                                            <Tooltip title={t('guestRegistration.deleteGuest', 'Delete Guest')}>
+                                                <IconButton 
+                                                    size="small" 
+                                                    color="error" 
+                                                    onClick={() => handleDeleteGuestClick(guest.id)}
+                                                    aria-label="delete guest"
+                                                >
+                                                    <DeleteIcon fontSize="small" />
+                                                </IconButton>
+                                            </Tooltip>
                                         </Box>
                                     </ListItem>
                                     {index < registeredGuests.length - 1 && <Divider />}
@@ -393,14 +479,8 @@ const GuestRegistrationPage: React.FC = () => {
                             ))}
                         </List>
                     ) : (
-                        <Box sx={{ 
-                            bgcolor: 'background.paper',
-                            p: 3,
-                            borderRadius: 1,
-                            border: `1px solid ${theme.palette.divider}`,
-                            textAlign: 'center'
-                        }}>
-                            <Typography sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+                        <Box className="guest-list-empty-box">
+                            <Typography className="guest-list-empty-text">
                                 {t('guestRegistration.noGuests', 'No guests registered for this booking yet.')}
                             </Typography>
                         </Box>
@@ -410,19 +490,14 @@ const GuestRegistrationPage: React.FC = () => {
 
             {/* Кнопка Добавить Гостя */} 
             {!isFormVisible && (
-                <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+                <Box className="add-guest-button-container">
                     <Button 
                         variant="contained" 
                         color="primary" 
                         onClick={() => setIsFormVisible(true)}
                         startIcon={<PersonAddIcon />}
                         size="large"
-                        sx={{ 
-                            py: 1.5, 
-                            px: 4, 
-                            borderRadius: 2,
-                            fontWeight: 'medium'
-                        }}
+                        className="add-guest-button"
                     >
                         {t('guestRegistration.registerButton', 'Register New Guest')}
                     </Button>
@@ -431,47 +506,33 @@ const GuestRegistrationPage: React.FC = () => {
 
             {/* Форма Регистрации Гостя (Условная) */} 
             {isFormVisible && (
-                <Card 
-                    elevation={3} 
-                    sx={{ 
-                        mb: 4, 
-                        borderRadius: 2,
-                        overflow: 'hidden'
-                    }}
-                >
-                    <Box sx={{ 
-                        height: '8px', 
-                        width: '100%', 
-                        bgcolor: 'info.main' 
-                    }} />
-                    
-                    <CardContent sx={{ p: 3 }}>
-                        <Typography variant="h5" gutterBottom sx={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            mb: 3,
-                            color: 'info.main'
-                        }}>
-                            <PersonAddIcon sx={{ mr: 1 }} />
-                            {t('guestRegistration.newGuestTitle', 'Register Guest Details')}
+                <Card elevation={3} className="registration-card">
+                    <Box className="registration-card-header-bar registration-card-header-bar-info" />
+                    <CardContent className="guest-form-card-content">
+                        <Typography variant="h5" gutterBottom className="registration-card-title registration-card-title-info">
+                            <PersonAddIcon className="registration-card-title-icon" />
+                            {editingGuestId 
+                                ? t('guestRegistration.editGuestTitle', 'Edit Guest Details') 
+                                : t('guestRegistration.newGuestTitle', 'Register Guest Details')}
                         </Typography>
                         
-                        {guestSaveError && <Alert severity="error" sx={{ mb: 3 }}>{guestSaveError}</Alert>}
-                        {countriesError && <Alert severity="warning" sx={{ mb: 3 }}>{countriesError}</Alert>}
+                        {guestSaveError && <Alert severity="error" className="alert-mb-3">{guestSaveError}</Alert>}
+                        {countriesError && <Alert severity="warning" className="alert-mb-3">{countriesError}</Alert>}
                         
                         <GuestForm
                             countries={countries}
                             loadingCountries={loadingCountries}
                             onSubmit={handleSaveGuest}
                             isSaving={isSavingGuest}
+                            initialData={editingGuestData}
                         />
                         
-                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
+                        <Box className="cancel-edit-button-container">
                             <Button 
-                                onClick={() => setIsFormVisible(false)} 
+                                onClick={handleCancelEdit}
                                 disabled={isSavingGuest} 
                                 variant="outlined"
-                                sx={{ mr: 2 }}
+                                className="cancel-edit-button"
                             >
                                 {t('guestRegistration.cancel', 'Cancel')}
                             </Button>
@@ -481,12 +542,7 @@ const GuestRegistrationPage: React.FC = () => {
             )}
 
             {/* Кнопка Завершения */} 
-            <Box sx={{ 
-                display: 'flex', 
-                justifyContent: 'center', 
-                mt: 5,
-                mb: 3
-            }}>
+            <Box className="finish-button-container">
                 <Button
                     variant="contained"
                     color="success"
@@ -494,12 +550,7 @@ const GuestRegistrationPage: React.FC = () => {
                     disabled={isFinishing || isSavingGuest || registeredGuests.length === 0}
                     startIcon={<CheckCircleIcon />}
                     size="large"
-                    sx={{ 
-                        py: 1.5, 
-                        px: 4, 
-                        borderRadius: 2,
-                        fontWeight: 'bold'
-                    }}
+                    className="finish-button"
                 >
                     {isFinishing ? 
                         <CircularProgress size={24} color="inherit" /> : 
@@ -507,6 +558,29 @@ const GuestRegistrationPage: React.FC = () => {
                     }
                 </Button>
             </Box>
+
+            {/* Диалог подтверждения удаления */} 
+            <ConfirmationDialog
+                open={isDeleteDialogOpen}
+                onClose={handleCancelDelete}
+                onConfirm={handleConfirmDelete}
+                title={t('guestRegistration.deleteConfirmTitle', 'Confirm Deletion')}
+                message={t('guestRegistration.deleteConfirmMessage', 'Are you sure you want to delete this guest? This action cannot be undone.')}
+            />
+
+            {/* Snackbar для уведомлений */} 
+            {snackbar && (
+                <Snackbar
+                    open={snackbar.open}
+                    autoHideDuration={6000}
+                    onClose={handleCloseSnackbar}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+                >
+                    <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
+                        {snackbar.message}
+                    </Alert>
+                </Snackbar>
+            )}
         </Container>
     );
 };

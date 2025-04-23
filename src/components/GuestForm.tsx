@@ -3,12 +3,9 @@ import { useForm, SubmitHandler, Controller, useWatch } from 'react-hook-form';
 import {
   Paper, Box, TextField, Button, Grid,
   Select, MenuItem, FormControl, InputLabel, FormHelperText,
-  Snackbar, Alert, Container, CircularProgress
+  Container, CircularProgress, Alert
 } from '@mui/material';
 import { MuiTelInput, matchIsValidTel, MuiTelInputInfo } from 'mui-tel-input';
-import { collection, addDoc, Timestamp } from 'firebase/firestore';
-import { FirebaseError } from 'firebase/app';
-import { db } from '../config/firebaseConfig';
 import { useTranslation } from 'react-i18next';
 import { useJsApiLoader, Autocomplete } from '@react-google-maps/api';
 // Импортируем тип формы из types
@@ -27,8 +24,9 @@ interface GuestFormProps {
   loadingCountries: boolean;
   bookingId?: string;
   onSaveSuccess?: (savedGuestData: IGuestFormShape) => void;
-  onSubmit?: (guestData: IGuestFormData) => Promise<void>;
+  onSubmit: (guestData: IGuestFormData) => Promise<void>;
   isSaving?: boolean;
+  initialData?: IGuestFormShape | null;
 }
 
 // Библиотеки Google Maps для загрузки (оставляем одно определение)
@@ -71,27 +69,40 @@ const validateVisitDate = (visitDateString: string): boolean | string => {
   }
 };
 
-const GuestForm: React.FC<GuestFormProps> = ({ countries, loadingCountries, bookingId, onSaveSuccess, onSubmit, isSaving: isSavingProp }) => {
-  console.log("GuestForm RENDERED. Loading countries:", loadingCountries);
+const GuestForm: React.FC<GuestFormProps> = ({ 
+  countries, 
+  loadingCountries, 
+  onSubmit, 
+  isSaving: isSavingProp, 
+  initialData 
+}) => {
+  console.log("GuestForm RENDERED. Loading countries:", loadingCountries, "Initial Data:", initialData);
 
   const { t } = useTranslation();
 
   const {
     register,
     handleSubmit,
-    formState: { errors, dirtyFields, touchedFields, isSubmitted },
+    formState: { errors, isDirty, isValid },
     control,
     reset,
     setValue,
     trigger,
-    getValues
   } = useForm<IGuestFormShape>({
     mode: 'onTouched',
-    defaultValues: {
-      firstName: '',
-      lastName: '',
-      secondLastName: '',
-      birthDate: '',
+  });
+
+  useEffect(() => {
+    if (initialData) {
+      console.log("GuestForm: Setting initial data:", initialData);
+      reset(initialData);
+    } else {
+      console.log("GuestForm: Resetting form (no initial data)");
+      reset({
+        firstName: '',
+        lastName: '',
+        secondLastName: '',
+        birthDate: '',
       nationality: '',
       sex: '',
       documentType: '',
@@ -101,38 +112,19 @@ const GuestForm: React.FC<GuestFormProps> = ({ countries, loadingCountries, book
       email: '',
       countryResidence: '',
       residenceAddress: '',
+        apartmentNumber: '',
       city: '',
       postcode: '',
       visitDate: '',
+      });
     }
-  });
+  }, [initialData, reset]);
 
-  useEffect(() => {
-    console.log("GuestForm state updated:", getValues());
-    console.log("Dirty fields:", dirtyFields);
-    console.log("Touched fields:", touchedFields);
-  });
-
-  // Контролируем отображение ошибки для residenceAddress
-  const [showResidenceError, setShowResidenceError] = useState(false);
-  
-  // Отслеживаем изменение поля residenceAddress и сабмит формы
-  useEffect(() => {
-    // Показываем ошибку только если поле было затронуто ИЛИ форма была отправлена
-    setShowResidenceError(!!touchedFields.residenceAddress || isSubmitted);
-  }, [touchedFields.residenceAddress, isSubmitted]);
-
-  // Используем внутреннее состояние для isSubmitting, если isSaving не передан
   const [isSubmittingInternal, setIsSubmittingInternal] = useState<boolean>(false);
   const isSubmitting = isSavingProp ?? isSubmittingInternal;
 
-  const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false);
-  const [snackbarMessage, setSnackbarMessage] = useState<string>('');
-  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
-
   const [phoneInfo, setPhoneInfo] = useState<MuiTelInputInfo | null>(null);
 
-  // Убираем явную типизацию
   const preferredPhoneCountries = ['GB', 'ES', 'FR', 'IT', 'DE'];
 
   const preferredCountryNames = ['United Kingdom of Great Britain and Northern Ireland', 'Spain', 'France', 'Italy', 'Germany'];
@@ -160,58 +152,17 @@ const GuestForm: React.FC<GuestFormProps> = ({ countries, loadingCountries, book
   const [postcodeKey, setPostcodeKey] = useState(0);
 
   const handleFormSubmit: SubmitHandler<IGuestFormShape> = async (data) => {
-    // --- ЛОГ ВНУТРИ ОБРАБОТЧИКА ФОРМЫ ---
-    console.log("GuestForm -> handleFormSubmit called. Received onSubmit prop:", onSubmit ? 'function' : typeof onSubmit);
-    // --- КОНЕЦ ЛОГА ---
-
+    console.log("GuestForm -> handleFormSubmit called. Data:", data);
+    
     if (isSavingProp === undefined) setIsSubmittingInternal(true);
-    setSnackbarOpen(false);
-
-    // Собираем данные для сохранения, тип IGuestFormData
-    const dataToSave: IGuestFormData = {
-      ...data,
-      countryCode: phoneInfo?.countryCode || '',
-      timestamp: Timestamp.now(),
-      ...(bookingId && !onSubmit && { bookingId: bookingId }),
-    };
 
     try {
-      if (onSubmit) {
-        // Передаем собранный IGuestFormData
-        await onSubmit(dataToSave);
-        setSnackbarMessage(t('guestForm.saveSuccess', 'Guest registered successfully!'));
-        setSnackbarSeverity('success');
-        setSnackbarOpen(true);
-        reset();
-      } else {
-        // Сохраняем собранный IGuestFormData
-        await addDoc(collection(db, "guests"), dataToSave);
-        setSnackbarMessage(t('guestForm.saveSuccessDefault', 'Information submitted successfully!'));
-        setSnackbarSeverity('success');
-        setSnackbarOpen(true);
-        if (onSaveSuccess) {
-          onSaveSuccess(data); // Передаем оригинальные данные формы (IGuestFormShape)
-        } else {
-          reset();
-        }
-      }
+      await onSubmit({
+        ...data,
+        countryCode: phoneInfo?.countryCode || '',
+      });
     } catch (error) {
-      console.error("Error saving guest data: ", error);
-      let userErrorMessage = t('guestForm.saveError', 'An error occurred while saving. Please try again.');
-      if (error instanceof FirebaseError) {
-        switch (error.code) {
-          case 'permission-denied':
-            userErrorMessage = t('errors.firestorePermissionDenied', 'Permission denied. Please check Firestore rules.');
-            break;
-          case 'unavailable':
-            userErrorMessage = t('errors.firestoreUnavailable', 'Cannot connect to the database. Please check your connection.');
-            break;
-        }
-        console.error(`Firestore Error Code: ${error.code}, Message: ${error.message}`);
-      }
-      setSnackbarMessage(userErrorMessage);
-      setSnackbarSeverity('error');
-      setSnackbarOpen(true);
+      console.error("Error during onSubmit call from GuestForm:", error);
     } finally {
       if (isSavingProp === undefined) setIsSubmittingInternal(false);
     }
@@ -229,7 +180,6 @@ const GuestForm: React.FC<GuestFormProps> = ({ countries, loadingCountries, book
     { value: 'Other', label: t('docTypeOptions.Other') },
   ];
 
-  // Полностью переработанная getErrorMessage
   const getErrorMessage = (fieldError: any) => {
     console.log("getErrorMessage called with:", fieldError);
     if (!fieldError) {
@@ -239,7 +189,6 @@ const GuestForm: React.FC<GuestFormProps> = ({ countries, loadingCountries, book
 
     const fieldName = fieldError.ref?.name;
     const errorType = fieldError.type;
-    // message может быть ключом из правила (e.g., 'errors.patternEmail')
     const messageFromRule = fieldError.message;
 
     console.log(`getErrorMessage: fieldName='${fieldName}', errorType='${errorType}', messageFromRule:`, messageFromRule);
@@ -248,14 +197,10 @@ const GuestForm: React.FC<GuestFormProps> = ({ countries, loadingCountries, book
     let lengthValue: number | string | undefined = undefined;
     let interpolationOptions: { field: string; length?: number | string } = { field: '' };
 
-    // 1. Определяем ключ для перевода (finalMessageKey)
-    // Приоритет специфичному ключу из правила
     if (typeof messageFromRule === 'string' && t(messageFromRule) !== messageFromRule) {
         finalMessageKey = messageFromRule;
         console.log(`getErrorMessage (Key Selection): Using specific key from rule: '${finalMessageKey}'`);
     } else {
-        // Иначе используем стандартный ключ (errors.required, errors.minLength, etc.)
-        // Для minLength/maxLength стандартный ключ теперь бесполезен, так как длина вшита в специфичный ключ
         const genericErrorTypeKey = `errors.${errorType}`;
         if (errorType !== 'minLength' && errorType !== 'maxLength' && t(genericErrorTypeKey) !== genericErrorTypeKey) {
             finalMessageKey = genericErrorTypeKey;
@@ -267,49 +212,34 @@ const GuestForm: React.FC<GuestFormProps> = ({ countries, loadingCountries, book
         }
     }
 
-    // Если ключ все еще не найден (например, для minLength/maxLength без валидного специфичного ключа), выходим
     if (!finalMessageKey) {
         console.log(`getErrorMessage (Key Selection): No valid key could be determined.`);
-         // Можно вернуть запасной вариант, если нужно
-        // return t('errors.invalidInput', 'Invalid input');
-        // Или просто текст из messageFromRule, если он есть
         if (typeof messageFromRule === 'string') return messageFromRule;
         return t('errors.invalidInput', 'Invalid input');
     }
 
-    // 2. Определяем имя поля для интерполяции
     interpolationOptions.field = fieldName ? t(fieldName, { defaultValue: fieldName }) : t('unknownField', 'Field');
 
-    // 3. Извлекаем длину из ключа (если это minLength_N или maxLength_N)
     const lengthMatch = finalMessageKey.match(/^(?:errors\.)?(?:minLength|maxLength)_(\d+)$/);
     if (lengthMatch && lengthMatch[1]) {
         lengthValue = parseInt(lengthMatch[1], 10);
         interpolationOptions.length = lengthValue;
         console.log(`getErrorMessage (Length Extraction): Extracted length=${lengthValue} from key '${finalMessageKey}'`);
     } else if (errorType === 'min' || errorType === 'max') {
-        // Для min/max пока оставляем извлечение из ref
         lengthValue = fieldError.ref?.min || fieldError.ref?.max;
         if(lengthValue !== undefined) interpolationOptions.length = lengthValue;
         console.log(`getErrorMessage (Length Extraction): Extracted min/max value=${lengthValue} from ref for type='${errorType}'`);
     }
 
-    // 4. Возвращаем переведенное сообщение
     console.log(`getErrorMessage (Translation): Using key='${finalMessageKey}', options=`, interpolationOptions);
     const translatedMessage = t(finalMessageKey, interpolationOptions);
     console.log(`getErrorMessage (Translation): Final translated message for '${finalMessageKey}'='${translatedMessage}'`);
     return translatedMessage;
 };
 
-  const handleSnackbarClose = (_event?: React.SyntheticEvent | Event, reason?: string) => {
-    if (reason === 'clickaway') {
-      return;
-    }
-    setSnackbarOpen(false);
-  };
-
   const handlePhoneChange = (newValue: string, info: MuiTelInputInfo) => {
       setValue('phone', newValue, { shouldValidate: true, shouldTouch: true });
-      setPhoneInfo(info); // Сохраняем информацию о телефоне (теперь setPhoneInfo используется)
+      setPhoneInfo(info);
   };
 
   const handleAutocompleteLoad = (autocomplete: google.maps.places.Autocomplete) => {
@@ -342,7 +272,7 @@ const GuestForm: React.FC<GuestFormProps> = ({ countries, loadingCountries, book
         if (country && countries.some(c => c.name === country)) {
           setValue('countryResidence', country, { shouldValidate: true });
         }
-        trigger(['residenceAddress', 'city', 'postcode']);
+        trigger(['residenceAddress', 'city', 'postcode', 'countryResidence']);
       } else {
         trigger('residenceAddress');
       }
@@ -371,8 +301,8 @@ const GuestForm: React.FC<GuestFormProps> = ({ countries, loadingCountries, book
   }
 
   return (
-    <Container component={Paper} elevation={0} sx={{ p: { xs: 2, sm: 3 }, mt: 0, border: 'none' }}>
-      <Box component="form" onSubmit={handleSubmit(handleFormSubmit)} noValidate sx={{ mt: 1 }}>
+    <Container component={Paper} elevation={0} className="guest-form-container">
+      <Box component="form" onSubmit={handleSubmit(handleFormSubmit)} noValidate className="guest-form-box">
         <Grid container spacing={3}>
           <Grid item xs={12} sm={6}>
             <TextField
@@ -577,7 +507,6 @@ const GuestForm: React.FC<GuestFormProps> = ({ countries, loadingCountries, book
                   }
                 }}
                 render={({ field, fieldState }) => {
-                  // Логируем fieldState для телефона
                   console.log('Phone fieldState:', fieldState);
                   return (
                     <MuiTelInput
@@ -658,6 +587,8 @@ const GuestForm: React.FC<GuestFormProps> = ({ countries, loadingCountries, book
           </Grid>
           <Grid item xs={12}>
             {isLoaded ? (
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={8}>
               <Autocomplete
                 onLoad={handleAutocompleteLoad}
                 onPlaceChanged={handlePlaceChanged}
@@ -670,11 +601,27 @@ const GuestForm: React.FC<GuestFormProps> = ({ countries, loadingCountries, book
                   label={t('homeAddress')}
                   variant="outlined"
                   {...register("residenceAddress", { required: 'errors.required' })}
-                  error={showResidenceError}
-                  helperText={showResidenceError ? getErrorMessage(errors.residenceAddress) : ''}
+                      error={!!errors.residenceAddress}
+                      helperText={errors.residenceAddress ? getErrorMessage(errors.residenceAddress) : ''}
+                      placeholder={t('placeholders.streetAddressOnly', 'Enter street address and number')}
                 />
               </Autocomplete>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    fullWidth
+                    id="apartmentNumber"
+                    label={t('apartmentNumber', 'Apt/Suite/Unit')}
+                    variant="outlined"
+                    {...register("apartmentNumber")}
+                    error={!!errors.apartmentNumber}
+                    helperText={errors.apartmentNumber ? getErrorMessage(errors.apartmentNumber) : ''}
+                  />
+                </Grid>
+              </Grid>
             ) : (
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={8}>
               <TextField
                 required
                 fullWidth
@@ -683,9 +630,21 @@ const GuestForm: React.FC<GuestFormProps> = ({ countries, loadingCountries, book
                 variant="outlined"
                 disabled={true}
                 {...register("residenceAddress", { required: 'errors.required' })}
-                error={showResidenceError}
-                helperText={showResidenceError ? getErrorMessage(errors.residenceAddress) : ''}
-              />
+                    error={!!errors.residenceAddress}
+                    helperText={errors.residenceAddress ? getErrorMessage(errors.residenceAddress) : ''}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    fullWidth
+                    id="apartmentNumber"
+                    label={t('apartmentNumber', 'Apt/Suite/Unit')}
+                    variant="outlined"
+                    disabled={true}
+                    {...register("apartmentNumber")}
+                  />
+                </Grid>
+              </Grid>
             )}
           </Grid>
           <Grid item xs={12} sm={6}>
@@ -732,27 +691,17 @@ const GuestForm: React.FC<GuestFormProps> = ({ countries, loadingCountries, book
             />
           </Grid>
         </Grid>
-        <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end' }}>
-          <Button
-            type="submit"
-            variant="contained"
-            disabled={isSubmitting || loadingCountries}
-            sx={{ minWidth: 120 }}
+        <Box className="guest-form-submit-box">
+            <Button
+              type="submit"
+              variant="contained"
+            disabled={isSubmitting || loadingCountries || !isDirty || !isValid}
+            className="guest-form-submit-button"
           >
             {isSubmitting ? <CircularProgress size={24} /> : t('submitButton')}
-          </Button>
+            </Button>
         </Box>
       </Box>
-      <Snackbar
-        open={snackbarOpen}
-        autoHideDuration={6000}
-        onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert onClose={handleSnackbarClose} severity={snackbarSeverity} sx={{ width: '100%' }}>
-          {snackbarMessage}
-        </Alert>
-      </Snackbar>
     </Container>
   );
 };

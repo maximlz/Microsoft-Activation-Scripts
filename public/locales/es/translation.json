@@ -14,12 +14,19 @@
   "email": "Correo Electrónico",
   "countryResidence": "País de Residencia",
   "residenceAddress": "Dirección de Residencia",
+  "apartmentNumber": "Piso/Puerta/Oficina",
   "city": "Ciudad",
   "postcode": "Código Postal",
   "visitDate": "Fecha de Visita",
   "submitButton": "Registrar Huésped",
   "choosePlaceholder": "Elegir...",
   "loadingPlaceholder": "Cargando...",
+  "placeholders": {
+    "selectCountry": "Seleccionar País...",
+    "selectSex": "Seleccionar Sexo...",
+    "selectDocType": "Seleccionar Tipo de Documento...",
+    "streetAddressOnly": "Introducir calle y número"
+  },
   "sexOptions": {
     "Female": "Femenino",
     "Male": "Masculino",
@@ -67,6 +74,27 @@
     "title": "Registro de Huéspedes",
     "registerButton": "Registrar Nuevo Huésped",
     "newGuestTitle": "Registrar Datos del Huésped",
-    "finishButton": "Finalizar Registro"
+    "editGuestTitle": "Editar Datos del Huésped",
+    "finishButton": "Finalizar Registro",
+    "loading": "Cargando información de registro...",
+    "error": "Error",
+    "returnHome": "Volver al Inicio",
+    "bookingDetails": "Detalles de la Reserva",
+    "confirmationCode": "Código de Confirmación",
+    "property": "Propiedad",
+    "checkIn": "Entrada",
+    "checkOut": "Salida",
+    "guestsRegistered": "Huéspedes Registrados",
+    "unnamedGuest": "Huésped Sin Nombre",
+    "noGuests": "No hay huéspedes registrados para esta reserva todavía.",
+    "cancel": "Cancelar",
+    "document": "Documento",
+    "editGuest": "Editar Huésped",
+    "deleteGuest": "Eliminar Huésped",
+    "deleteConfirmTitle": "Confirmar Eliminación",
+    "deleteConfirmMessage": "¿Estás seguro de que quieres eliminar a este huésped? Esta acción no se puede deshacer.",
+    "createSuccess": "¡Huésped añadido con éxito!",
+    "updateSuccess": "¡Huésped actualizado con éxito!",
+    "deleteSuccess": "¡Huésped eliminado con éxito!"
   }
 } 
