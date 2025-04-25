@@ -3,8 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { doc, updateDoc, collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
 import { getFunctions, httpsCallable } from "firebase/functions";
-import { IBooking, IBookingWithId, IGuestFormData, IGuestFormDataWithId, IGuestFormShape } from '../types/guestTypes';
-import GuestForm, { Country } from './GuestForm'; // Импортируем как именованный экспорт
+import { IBooking, IBookingWithId, IGuestFormData, IGuestFormDataWithId, IGuestFormShape, Country } from '../types/guestTypes';
+import GuestForm from './GuestForm'; // Импортируем ТОЛЬКО GuestForm
 import { Container, Typography, Box, CircularProgress, Alert, Button, Paper, List, ListItem, Divider, Grid, Card, CardContent, Avatar, Chip, IconButton, Tooltip, Snackbar } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from './LanguageSwitcher';
@@ -18,8 +18,11 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ConfirmationDialog from './ConfirmationDialog';
 
-// Используем guestConverter из RegistrationsList
-import { guestConverter, formatDateDDMMYYYY } from '../admin/RegistrationsList';
+// ---> ИСПРАВЛЕННЫЕ ИМПОРТЫ <---
+// import { guestConverter, formatDateDDMMYYYY } from '../admin/RegistrationsList'; // Старый импорт
+import { guestConverter } from '../config/firebaseConverters';
+import { formatDateDDMMYYYY } from '../utils/formatters';
+// -------------------------------
 
 // Тип для состояния Snackbar
 type SnackbarState = { open: boolean; message: string; severity: 'success' | 'error' } | null;
@@ -520,11 +523,11 @@ const GuestRegistrationPage: React.FC = () => {
                         {countriesError && <Alert severity="warning" className="alert-mb-3">{countriesError}</Alert>}
                         
                         <GuestForm
-                            countries={countries}
+                            countries={countries || []}
                             loadingCountries={loadingCountries}
                             onSubmit={handleSaveGuest}
                             isSaving={isSavingGuest}
-                            initialData={editingGuestData}
+                            initialData={editingGuestData || undefined}
                         />
                         
                         <Box className="cancel-edit-button-container">

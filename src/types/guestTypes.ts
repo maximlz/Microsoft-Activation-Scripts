@@ -83,3 +83,11 @@ export interface IPropertyWithId extends IProperty {
     id: string;
 }
 // --- End of Property Types --- 
+
+// --- Country Type --- (Перенесено из GuestForm.tsx)
+export interface Country {
+  id: string;
+  name: string;
+  code: string;
+}
+// --- End of Country Type --- 

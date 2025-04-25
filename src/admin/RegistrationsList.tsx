@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Box, Typography, Alert, CircularProgress, Link, Snackbar } from '@mui/material';
 import { DataGrid, GridColDef, GridToolbar, GridActionsCellItem, GridSortModel, GridRowClassNameParams } from '@mui/x-data-grid';
-import { collection, query, orderBy, Timestamp, FirestoreDataConverter, SnapshotOptions, DocumentData, WithFieldValue, doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, orderBy, Timestamp, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useCollectionData } from 'react-firebase-hooks/firestore';
 import { db } from '../config/firebaseConfig';
 import { useTranslation } from 'react-i18next';
@@ -12,59 +12,8 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import RegistrationDetailsModal from './RegistrationDetailsModal';
 import ConfirmationDialog from '../components/ConfirmationDialog';
 import { styled } from '@mui/material/styles';
-import { format } from 'date-fns'; // Используем date-fns для надежного форматирования
-
-// Добавляем export
-export const guestConverter: FirestoreDataConverter<IGuestFormDataWithId> = {
-    toFirestore(guestWithId: WithFieldValue<IGuestFormDataWithId>): DocumentData {
-        const { id, ...dataToWrite } = guestWithId; // Используем деструктуризацию
-        // Не нужно удалять id, так как мы его исключили при деструктуризации
-        return dataToWrite;
-    },
-    fromFirestore(snapshot: DocumentData, options: SnapshotOptions): IGuestFormDataWithId {
-        const data = snapshot.data(options)!;
-        // Добавляем bookingConfirmationCode
-        return {
-            id: snapshot.id,
-            firstName: data.firstName || '',
-            lastName: data.lastName || '',
-            secondLastName: data.secondLastName,
-            birthDate: data.birthDate || '',
-            nationality: data.nationality || '',
-            sex: data.sex || '',
-            documentType: data.documentType || '',
-            documentNumber: data.documentNumber || '',
-            documentSupNum: data.documentSupNum,
-            phone: data.phone || '',
-            email: data.email || '',
-            countryResidence: data.countryResidence || '',
-            residenceAddress: data.residenceAddress || '',
-            apartmentNumber: data.apartmentNumber,
-            city: data.city || '',
-            postcode: data.postcode || '',
-            visitDate: data.visitDate || '',
-            countryCode: data.countryCode,
-            bookingConfirmationCode: data.bookingConfirmationCode, // <-- Добавляем код бронирования
-            timestamp: data.timestamp, // timestamp остается
-            bookingId: data.bookingId 
-        } as IGuestFormDataWithId;
-    }
-};
-
-// Добавляем export
-export const formatDateDDMMYYYY = (dateInput: Timestamp | string | undefined | null): string => {
-    if (!dateInput) return '-';
-    try {
-        const date = dateInput instanceof Timestamp ? dateInput.toDate() : new Date(dateInput);
-        if (isNaN(date.getTime())) {
-            return typeof dateInput === 'string' ? dateInput : '-';
-        }
-        return format(date, 'dd-MM-yyyy');
-    } catch (e) {
-        console.error("Error formatting date:", dateInput, e);
-        return typeof dateInput === 'string' ? dateInput : '-';
-    }
-};
+import { guestConverter } from '../config/firebaseConverters';
+import { formatDateDDMMYYYY } from '../utils/formatters';
 
 // Определяем колонки для DataGrid
 const columns = (

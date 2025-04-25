@@ -9,65 +9,23 @@ import { MuiTelInput, matchIsValidTel, MuiTelInputInfo } from 'mui-tel-input';
 import { useTranslation } from 'react-i18next';
 import { useJsApiLoader, Autocomplete } from '@react-google-maps/api';
 // Импортируем тип формы из types
-import { IGuestFormShape, IGuestFormData } from '../types/guestTypes';
-
-// Тип для страны (экспортируется)
-export interface Country {
-  id: string;
-  name: string;
-  code: string;
-}
-
-// Обновленный интерфейс пропсов
-interface GuestFormProps {
-  countries: Country[];
-  loadingCountries: boolean;
-  bookingId?: string;
-  onSaveSuccess?: (savedGuestData: IGuestFormShape) => void;
-  onSubmit: (guestData: IGuestFormData) => Promise<void>;
-  isSaving?: boolean;
-  initialData?: IGuestFormShape | null;
-}
+import { IGuestFormShape, IGuestFormData, Country } from '../types/guestTypes';
+// Импортируем утилиты валидации
+import { validateMinAge, validateVisitDate } from '../utils/validators';
+// Импортируем опции для Select
+import { sexOptions, documentTypeOptions } from '../constants/formOptions';
 
 // Библиотеки Google Maps для загрузки (оставляем одно определение)
 const libraries: ("places")[] = ['places'];
 
-// Функция для проверки возраста (оставляем одно определение)
-const validateMinAge = (birthDateString: string): boolean | string => {
-  try {
-    const birthDate = new Date(birthDateString);
-    const today = new Date();
-    const minAgeDate = new Date(today.getFullYear() - 14, today.getMonth(), today.getDate());
-    if (isNaN(birthDate.getTime())) {
-      return 'errors.invalidDate';
-    }
-    if (birthDate > minAgeDate) {
-      return 'errors.minAge';
-    }
-    return true;
-  } catch (e) {
-    return 'errors.invalidDate';
-  }
-};
-
-// Функция для проверки даты посещения (не раньше текущего дня)
-const validateVisitDate = (visitDateString: string): boolean | string => {
-  try {
-    const visitDate = new Date(visitDateString);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Сбрасываем время до начала дня для корректного сравнения дат
-    
-    if (isNaN(visitDate.getTime())) {
-      return 'errors.invalidDate';
-    }
-    if (visitDate < today) {
-      return 'errors.futureDateRequired';
-    }
-    return true;
-  } catch (e) {
-    return 'errors.invalidDate';
-  }
-};
+// Интерфейс для пропсов компонента GuestForm
+interface GuestFormProps {
+  countries: Country[]; // Массив стран
+  loadingCountries: boolean; // Флаг загрузки стран
+  onSubmit: (data: IGuestFormData) => Promise<void>; // Функция для отправки данных формы
+  isSaving?: boolean; // Необязательный флаг процесса сохранения (передается извне)
+  initialData?: Partial<IGuestFormShape>; // Необязательные начальные данные для формы
+}
 
 const GuestForm: React.FC<GuestFormProps> = ({ 
   countries, 
@@ -167,18 +125,6 @@ const GuestForm: React.FC<GuestFormProps> = ({
       if (isSavingProp === undefined) setIsSubmittingInternal(false);
     }
   };
-
-  const sexOptions = [
-    { value: 'Female', label: t('sexOptions.Female') },
-    { value: 'Male', label: t('sexOptions.Male') },
-    { value: 'Other', label: t('sexOptions.Other') },
-  ];
-  const documentTypeOptions = [
-    { value: 'Passport', label: t('docTypeOptions.Passport') },
-    { value: 'ID Card', label: t('docTypeOptions.ID Card') },
-    { value: 'NIF', label: t('docTypeOptions.NIF') },
-    { value: 'Other', label: t('docTypeOptions.Other') },
-  ];
 
   const getErrorMessage = (fieldError: any) => {
     console.log("getErrorMessage called with:", fieldError);
@@ -426,7 +372,7 @@ const GuestForm: React.FC<GuestFormProps> = ({
                       </MenuItem>
                       {sexOptions.map((option) => (
                         <MenuItem key={option.value} value={option.value}>
-                          {option.label}
+                          {t(option.labelKey, option.value)}
                         </MenuItem>
                       ))}
                     </Select>
@@ -459,7 +405,7 @@ const GuestForm: React.FC<GuestFormProps> = ({
                       </MenuItem>
                       {documentTypeOptions.map((option) => (
                         <MenuItem key={option.value} value={option.value}>
-                          {option.label}
+                          {t(option.labelKey, option.value)}
                         </MenuItem>
                       ))}
                     </Select>

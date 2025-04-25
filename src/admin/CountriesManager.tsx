@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
-import { Country } from '../components/GuestForm';
+import { Country } from '../types/guestTypes';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { DataGrid, GridColDef, GridToolbar, GridActionsCellItem, GridSortModel } from '@mui/x-data-grid';
@@ -352,8 +352,8 @@ const CountriesManager: React.FC = () => {
                     }}
                     autoHeight={false}
                     disableRowSelectionOnClick
-            />
-        </Paper>
+                />
+            </Paper>
         </Box>
     );
 };
