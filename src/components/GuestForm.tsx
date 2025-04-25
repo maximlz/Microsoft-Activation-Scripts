@@ -25,6 +25,7 @@ interface GuestFormProps {
   onSubmit: (data: IGuestFormData) => Promise<void>; // Функция для отправки данных формы
   isSaving?: boolean; // Необязательный флаг процесса сохранения (передается извне)
   initialData?: Partial<IGuestFormShape>; // Необязательные начальные данные для формы
+  isEditMode?: boolean; // Добавляем проп для режима редактирования
 }
 
 const GuestForm: React.FC<GuestFormProps> = ({ 
@@ -32,7 +33,8 @@ const GuestForm: React.FC<GuestFormProps> = ({
   loadingCountries, 
   onSubmit, 
   isSaving: isSavingProp, 
-  initialData 
+  initialData, 
+  isEditMode
 }) => {
   console.log("GuestForm RENDERED. Loading countries:", loadingCountries, "Initial Data:", initialData);
 
@@ -307,10 +309,8 @@ const GuestForm: React.FC<GuestFormProps> = ({
             />
           </Grid>
           <Grid item xs={12} sm={6}>
-            <FormControl fullWidth error={!!errors.nationality}>
-              <InputLabel id="nationality-label">
-                {t('nationality')} <span className="required-star">*</span>
-              </InputLabel>
+            <FormControl fullWidth error={!!errors.nationality} required>
+              <InputLabel id="nationality-label">{t('nationality')}</InputLabel>
               <Controller
                 name="nationality"
                 control={control}
@@ -325,6 +325,7 @@ const GuestForm: React.FC<GuestFormProps> = ({
                       value={field.value || ''}
                       error={fieldState.invalid}
                       displayEmpty
+                      label={t('nationality')}
                     >
                       <MenuItem value="">
                         <em>{loadingCountries ? t('loadingPlaceholder') : ""}</em>
@@ -349,10 +350,8 @@ const GuestForm: React.FC<GuestFormProps> = ({
             </FormControl>
           </Grid>
           <Grid item xs={12} sm={6}>
-            <FormControl fullWidth error={!!errors.sex}>
-              <InputLabel id="sex-label">
-                {t('sex')} <span className="required-star">*</span>
-              </InputLabel>
+            <FormControl fullWidth error={!!errors.sex} required>
+              <InputLabel id="sex-label">{t('sex')}</InputLabel>
               <Controller
                 name="sex"
                 control={control}
@@ -366,6 +365,7 @@ const GuestForm: React.FC<GuestFormProps> = ({
                       value={field.value || ''}
                       error={fieldState.invalid}
                       displayEmpty
+                      label={t('sex')}
                     >
                       <MenuItem value="">
                         <em></em>
@@ -382,10 +382,8 @@ const GuestForm: React.FC<GuestFormProps> = ({
             </FormControl>
           </Grid>
           <Grid item xs={12} sm={6}>
-            <FormControl fullWidth error={!!errors.documentType}>
-              <InputLabel id="documentType-label">
-                {t('documentType')} <span className="required-star">*</span>
-              </InputLabel>
+            <FormControl fullWidth error={!!errors.documentType} required>
+              <InputLabel id="documentType-label">{t('documentType')}</InputLabel>
               <Controller
                 name="documentType"
                 control={control}
@@ -399,6 +397,7 @@ const GuestForm: React.FC<GuestFormProps> = ({
                       value={field.value || ''}
                       error={fieldState.invalid}
                       displayEmpty
+                      label={t('documentType')}
                     >
                       <MenuItem value="">
                         <em></em>
@@ -440,37 +439,35 @@ const GuestForm: React.FC<GuestFormProps> = ({
             />
           </Grid>
           <Grid item xs={12} sm={6}>
-            <FormControl fullWidth error={!!errors.phone}>
-              <Controller
-                name="phone"
-                control={control}
-                rules={{
-                  required: 'errors.required',
-                  validate: (value) => {
-                    const isValid = matchIsValidTel(value || '');
-                    console.log(`Phone validation: value='${value}', isValid=${isValid}`);
-                    return isValid || 'errors.validatePhone';
-                  }
-                }}
-                render={({ field, fieldState }) => {
-                  console.log('Phone fieldState:', fieldState);
-                  return (
-                    <MuiTelInput
-                      {...field}
-                      label={t('phone')}
-                      defaultCountry="ES"
-                      preferredCountries={preferredPhoneCountries as any}
-                      variant="outlined"
-                      fullWidth
-                      required
-                      error={fieldState.invalid}
-                      helperText={fieldState.error ? getErrorMessage(fieldState.error) : ''}
-                      onChange={handlePhoneChange}
-                    />
-                  );
-                }}
-              />
-            </FormControl>
+            <Controller
+              name="phone"
+              control={control}
+              rules={{
+                required: 'errors.required',
+                validate: (value) => {
+                  const isValid = matchIsValidTel(value || '');
+                  console.log(`Phone validation: value='${value}', isValid=${isValid}`);
+                  return isValid || 'errors.validatePhone';
+                }
+              }}
+              render={({ field, fieldState }) => {
+                console.log('Phone fieldState:', fieldState);
+                return (
+                  <MuiTelInput
+                    {...field}
+                    label={t('phone')}
+                    defaultCountry="ES"
+                    preferredCountries={preferredPhoneCountries as any}
+                    variant="outlined"
+                    fullWidth
+                    required
+                    error={fieldState.invalid}
+                    helperText={fieldState.error ? getErrorMessage(fieldState.error) : ''}
+                    onChange={handlePhoneChange}
+                  />
+                );
+              }}
+            />
           </Grid>
           <Grid item xs={12} sm={6}>
             <TextField
@@ -492,7 +489,7 @@ const GuestForm: React.FC<GuestFormProps> = ({
             />
           </Grid>
           <Grid item xs={12} sm={6}>
-            <FormControl fullWidth error={!!errors.countryResidence}>
+            <FormControl fullWidth error={!!errors.countryResidence} required>
               <InputLabel id="countryResidence-label">{t('countryResidence')}</InputLabel>
               <Controller
                 name="countryResidence"
@@ -508,6 +505,7 @@ const GuestForm: React.FC<GuestFormProps> = ({
                       error={fieldState.invalid}
                       displayEmpty
                       disabled={loadingCountries}
+                      label={t('countryResidence')}
                     >
                       <MenuItem value="">
                         <em>{loadingCountries ? t('loadingPlaceholder') : ""}</em>
@@ -535,29 +533,29 @@ const GuestForm: React.FC<GuestFormProps> = ({
             {isLoaded ? (
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={8}>
-              <Autocomplete
-                onLoad={handleAutocompleteLoad}
-                onPlaceChanged={handlePlaceChanged}
-                options={{ types: ['address'] }}
-              >
-                <TextField
-                  required
-                  fullWidth
-                  id="residenceAddress"
-                  label={t('homeAddress')}
-                  variant="outlined"
-                  {...register("residenceAddress", { required: 'errors.required' })}
+                  <Autocomplete
+                    onLoad={handleAutocompleteLoad}
+                    onPlaceChanged={handlePlaceChanged}
+                    options={{ types: ['address'] }}
+                  >
+                    <TextField
+                      required
+                      fullWidth
+                      id="residenceAddress"
+                      label={t('homeAddress')}
+                      variant="outlined"
+                      {...register("residenceAddress", { required: 'errors.required' })}
                       error={!!errors.residenceAddress}
                       helperText={errors.residenceAddress ? getErrorMessage(errors.residenceAddress) : ''}
                       placeholder={t('placeholders.streetAddressOnly', 'Enter street address and number')}
-                />
-              </Autocomplete>
+                    />
+                  </Autocomplete>
                 </Grid>
                 <Grid item xs={12} sm={4}>
                   <TextField
                     fullWidth
                     id="apartmentNumber"
-                    label={t('apartmentNumber', 'Apt/Suite/Unit')}
+                    label={t('formLabels.apartmentNumberOptional')}
                     variant="outlined"
                     {...register("apartmentNumber")}
                     error={!!errors.apartmentNumber}
@@ -568,14 +566,14 @@ const GuestForm: React.FC<GuestFormProps> = ({
             ) : (
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={8}>
-              <TextField
-                required
-                fullWidth
-                id="residenceAddress"
-                label={t('homeAddress')}
-                variant="outlined"
-                disabled={true}
-                {...register("residenceAddress", { required: 'errors.required' })}
+                  <TextField
+                    required
+                    fullWidth
+                    id="residenceAddress"
+                    label={t('homeAddress')}
+                    variant="outlined"
+                    disabled={true}
+                    {...register("residenceAddress", { required: 'errors.required' })}
                     error={!!errors.residenceAddress}
                     helperText={errors.residenceAddress ? getErrorMessage(errors.residenceAddress) : ''}
                   />
@@ -584,7 +582,7 @@ const GuestForm: React.FC<GuestFormProps> = ({
                   <TextField
                     fullWidth
                     id="apartmentNumber"
-                    label={t('apartmentNumber', 'Apt/Suite/Unit')}
+                    label={t('formLabels.apartmentNumberOptional')}
                     variant="outlined"
                     disabled={true}
                     {...register("apartmentNumber")}
@@ -641,10 +639,10 @@ const GuestForm: React.FC<GuestFormProps> = ({
             <Button
               type="submit"
               variant="contained"
-            disabled={isSubmitting || loadingCountries || !isDirty || !isValid}
-            className="guest-form-submit-button"
-          >
-            {isSubmitting ? <CircularProgress size={24} /> : t('submitButton')}
+              disabled={isSubmitting || loadingCountries || !isDirty || !isValid}
+              className="guest-form-submit-button"
+            >
+              {isSubmitting ? <CircularProgress size={24} /> : (isEditMode ? t('updateButton') : t('submitButton'))}
             </Button>
         </Box>
       </Box>

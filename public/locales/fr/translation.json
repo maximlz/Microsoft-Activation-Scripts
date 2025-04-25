@@ -19,13 +19,15 @@
   "postcode": "Code postal",
   "visitDate": "Date de la visite",
   "submitButton": "Enregistrer l'invité",
+  "updateButton": "Mettre à jour l'invité",
   "choosePlaceholder": "Choisir...",
   "loadingPlaceholder": "Chargement...",
   "placeholders": {
     "selectCountry": "Sélectionner un pays...",
     "selectSex": "Sélectionner le sexe...",
     "selectDocType": "Sélectionner le type de document...",
-    "streetAddressOnly": "Entrez la rue et le numéro"
+    "streetAddressOnly": "Entrez la rue et le numéro",
+    "apartmentNumberOptional": "Appartement/Suite (Facultatif)"
   },
   "sexOptions": {
     "Female": "Femme",
@@ -57,9 +59,77 @@
     "googleMapsLoadError": "Erreur lors du chargement de l'API Google Maps. La saisie semi-automatique d'adresse ne fonctionnera pas.",
     "patternEmail": "Le format de {{field}} est invalide",
     "validatePhone": "Veuillez saisir un numéro de téléphone valide",
-    "futureDateRequired": "La date de visite ne peut pas être antérieure à la date actuelle."
+    "futureDateRequired": "La date de visite ne peut pas être antérieure à la date actuelle.",
+    "validateMinAge": "L'invité doit avoir au moins 16 ans",
+    "validateVisitDate": "La date d'arrivée ne peut pas être dans le passé"
   },
   "successMessage": "Invité enregistré avec succès !",
   "errorMessage": "Échec de l'enregistrement de l'invité. Veuillez réessayer.",
-  "homeAddress": "Adresse de résidence"
+  "homeAddress": "Adresse de résidence",
+  "formLabels": {
+    "firstName": "Prénom",
+    "lastName": "Nom de famille",
+    "secondLastName": "Deuxième nom",
+    "birthDate": "Date de naissance",
+    "nationality": "Nationalité",
+    "sex": "Sexe",
+    "documentType": "Type de document",
+    "documentNumber": "Numéro de document",
+    "documentSupNum": "Numéro de support",
+    "phone": "Téléphone",
+    "email": "Email",
+    "countryResidence": "Pays de résidence",
+    "residenceAddress": "Adresse",
+    "apartmentNumber": "Appartement/Suite",
+    "apartmentNumberOptional": "Appartement/Suite (Facultatif)",
+    "city": "Ville",
+    "postcode": "Code postal",
+    "visitDate": "Date d'arrivée",
+    "timestamp": "Enregistré le"
+  },
+  "selectPlaceholder": "Sélectionnez...",
+  "registrationSuccessTitle": "Enregistrement réussi !",
+  "registrationSuccessMessage": "Merci de vous être enregistré. Vos informations ont été soumises.",
+  "registrationErrorTitle": "Échec de l'enregistrement",
+  "registrationErrorMessage": "Une erreur s'est produite lors de l'enregistrement. Veuillez réessayer plus tard.",
+  "adminLogin": {
+    "title": "Connexion Admin",
+    "emailLabel": "Email",
+    "passwordLabel": "Mot de passe",
+    "loginButton": "Connexion",
+    "logoutButton": "Déconnexion",
+    "loginFailed": "Échec de la connexion. Vérifiez vos identifiants."
+  },
+  "dashboard": {
+    "title": "Tableau de bord Admin",
+    "manageBookings": "Gérer les réservations",
+    "manageProperties": "Gérer les propriétés",
+    "manageGuests": "Gérer les invités"
+  },
+  "bookingManagement": {
+    "title": "Gestion des réservations",
+    "addBooking": "Ajouter une réservation",
+    "errorLoading": "Erreur de chargement des réservations :",
+    "guestUpdateSuccess": "Détails de l'invité mis à jour avec succès !",
+    "guestUpdateErrorCloud": "Échec de la mise à jour de l'invité via Cloud Function.",
+    "guestUpdateErrorGeneric": "Une erreur s'est produite lors de la mise à jour des détails de l'invité."
+  },
+  "actions": {
+    "save": "Enregistrer",
+    "close": "Fermer"
+  },
+  "registrationDetails": {
+    "editTitle": "Modifier l'enregistrement",
+    "viewTitle": "Voir les détails de l'enregistrement",
+    "errorNotFound": "Enregistrement non trouvé.",
+    "errorLoading": "Erreur de chargement des détails :",
+    "errorSaving": "Erreur lors de l'enregistrement des modifications :"
+  },
+  "documentTypes": {
+    "Passport": "Passeport",
+    "ID Card": "Carte d'identité",
+    "Driving License": "Permis de conduire",
+    "Residence Permit": "Permis de séjour",
+    "Other": "Autre"
+  }
 } 

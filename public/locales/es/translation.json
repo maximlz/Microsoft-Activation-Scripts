@@ -19,25 +19,35 @@
   "postcode": "Código Postal",
   "visitDate": "Fecha de Visita",
   "submitButton": "Registrar Huésped",
+  "updateButton": "Actualizar Huésped",
   "choosePlaceholder": "Elegir...",
   "loadingPlaceholder": "Cargando...",
-  "placeholders": {
-    "selectCountry": "Seleccionar País...",
-    "selectSex": "Seleccionar Sexo...",
-    "selectDocType": "Seleccionar Tipo de Documento...",
-    "streetAddressOnly": "Introducir calle y número"
+  "formLabels": {
+    "firstName": "Nombre",
+    "lastName": "Apellido",
+    "secondLastName": "Segundo Apellido",
+    "birthDate": "Fecha de nacimiento",
+    "nationality": "Nacionalidad",
+    "sex": "Sexo",
+    "documentType": "Tipo de documento",
+    "documentNumber": "Número de documento",
+    "documentSupNum": "Número de soporte",
+    "phone": "Teléfono",
+    "email": "Email",
+    "countryResidence": "País de residencia",
+    "residenceAddress": "Dirección",
+    "apartmentNumber": "Piso/Apartamento",
+    "apartmentNumberOptional": "Piso/Apartamento (Opcional)",
+    "city": "Ciudad",
+    "postcode": "Código Postal",
+    "visitDate": "Fecha de visita",
+    "timestamp": "Registrado el"
   },
-  "sexOptions": {
-    "Female": "Femenino",
-    "Male": "Masculino",
-    "Other": "Otro"
-  },
-  "docTypeOptions": {
-    "Passport": "Pasaporte",
-    "ID Card": "DNI",
-    "NIF": "NIF",
-    "Other": "Otro"
-  },
+  "selectPlaceholder": "Seleccione...",
+  "registrationSuccessTitle": "¡Registro Exitoso!",
+  "registrationSuccessMessage": "Gracias por registrarte. Tus datos han sido enviados.",
+  "registrationErrorTitle": "Registro Fallido",
+  "registrationErrorMessage": "Ocurrió un error durante el registro. Por favor, inténtalo de nuevo más tarde.",
   "errors": {
     "required": "{{field}} es obligatorio.",
     "maxLength": "{{field}} debe tener como máximo {{length}} caracteres",
@@ -55,7 +65,9 @@
     "fetchCountriesGeneric": "No se pudo cargar la lista de países.",
     "fetchCountriesPermission": "No se pudieron cargar los países debido a problemas de permisos.",
     "googleMapsLoadError": "Error al cargar la API de Google Maps. El autocompletado de direcciones no funcionará.",
-    "futureDateRequired": "La fecha de visita no debe ser anterior a la fecha actual."
+    "futureDateRequired": "La fecha de visita no debe ser anterior a la fecha actual.",
+    "validateMinAge": "El huésped debe tener al menos 16 años",
+    "validateVisitDate": "La fecha de visita no puede ser en el pasado"
   },
   "successMessage": "¡Huésped registrado con éxito!",
   "errorMessage": "No se pudo registrar al huésped. Por favor, inténtalo de nuevo.",
@@ -96,5 +108,63 @@
     "createSuccess": "¡Huésped añadido con éxito!",
     "updateSuccess": "¡Huésped actualizado con éxito!",
     "deleteSuccess": "¡Huésped eliminado con éxito!"
+  },
+  "placeholders": {
+    "selectCountry": "Seleccionar País...",
+    "selectSex": "Seleccionar Sexo...",
+    "selectDocType": "Seleccionar Tipo de Documento...",
+    "streetAddressOnly": "Introducir calle y número",
+    "apartmentNumberOptional": "Piso/Apartamento (Opcional)"
+  },
+  "adminLogin": {
+    "title": "Acceso de Administrador",
+    "emailLabel": "Email",
+    "passwordLabel": "Contraseña",
+    "loginButton": "Acceder",
+    "logoutButton": "Salir",
+    "loginFailed": "Acceso fallido. Revisa tus credenciales."
+  },
+  "dashboard": {
+    "title": "Panel de Administración",
+    "manageBookings": "Gestionar Reservas",
+    "manageProperties": "Gestionar Propiedades",
+    "manageGuests": "Gestionar Huéspedes"
+  },
+  "bookingManagement": {
+    "title": "Gestión de Reservas",
+    "addBooking": "Añadir Reserva",
+    "errorLoading": "Error al cargar las reservas:",
+    "guestUpdateSuccess": "¡Datos del huésped actualizados correctamente!",
+    "guestUpdateErrorCloud": "No se pudo actualizar el huésped a través de Cloud Function.",
+    "guestUpdateErrorGeneric": "Ocurrió un error al actualizar los datos del huésped."
+  },
+  "actions": {
+    "save": "Guardar",
+    "close": "Cerrar"
+  },
+   "registrationDetails": {
+    "editTitle": "Editar Registro",
+    "viewTitle": "Ver Detalles del Registro",
+    "errorNotFound": "Registro no encontrado.",
+    "errorLoading": "Error al cargar los detalles:",
+    "errorSaving": "Error al guardar los cambios:"
+  },
+  "sexOptions": {
+    "Female": "Femenino",
+    "Male": "Masculino",
+    "Other": "Otro"
+  },
+  "docTypeOptions": {
+    "Passport": "Pasaporte",
+    "ID Card": "DNI",
+    "NIF": "NIF",
+    "Other": "Otro"
+  },
+  "documentTypes": {
+    "Passport": "Pasaporte",
+    "ID Card": "DNI/NIE",
+    "Driving License": "Carnet de conducir",
+    "Residence Permit": "Permiso de residencia",
+    "Other": "Otro"
   }
 } 

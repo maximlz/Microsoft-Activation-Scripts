@@ -19,13 +19,15 @@
   "postcode": "Postcode",
   "visitDate": "Visit Date",
   "submitButton": "Register Guest",
+  "updateButton": "Update Guest",
   "choosePlaceholder": "Choose...",
   "loadingPlaceholder": "Loading...",
   "placeholders": {
     "selectCountry": "Select Country...",
     "selectSex": "Select Sex...",
     "selectDocType": "Select Document Type...",
-    "streetAddressOnly": "Enter street address and number"
+    "streetAddressOnly": "Enter street address and number",
+    "apartmentNumberOptional": "Apt/Suite/Unit (Optional)"
   },
   "sexOptions": {
     "Female": "Female",
@@ -96,5 +98,71 @@
     "createSuccess": "Guest added successfully!",
     "updateSuccess": "Guest updated successfully!",
     "deleteSuccess": "Guest deleted successfully!"
+  },
+  "formLabels": {
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "secondLastName": "Second Last Name",
+    "birthDate": "Birth Date",
+    "nationality": "Nationality",
+    "sex": "Sex",
+    "documentType": "Document Type",
+    "documentNumber": "Document Number",
+    "documentSupNum": "Support Number",
+    "phone": "Phone",
+    "email": "Email",
+    "countryResidence": "Country of Residence",
+    "residenceAddress": "Address",
+    "apartmentNumber": "Apt/Suite/Unit",
+    "apartmentNumberOptional": "Apt/Suite/Unit (Optional)",
+    "city": "City",
+    "postcode": "Postcode",
+    "visitDate": "Visit Date",
+    "timestamp": "Registered At"
+  },
+  "selectPlaceholder": "Select...",
+  "registrationSuccessTitle": "Registration Successful!",
+  "registrationSuccessMessage": "Thank you for registering. Your details have been submitted.",
+  "registrationErrorTitle": "Registration Failed",
+  "registrationErrorMessage": "An error occurred during registration. Please try again later.",
+  "adminLogin": {
+    "title": "Admin Login",
+    "emailLabel": "Email",
+    "passwordLabel": "Password",
+    "loginButton": "Login",
+    "logoutButton": "Logout",
+    "loginFailed": "Login failed. Please check your credentials."
+  },
+  "dashboard": {
+    "title": "Admin Dashboard",
+    "manageBookings": "Manage Bookings",
+    "manageProperties": "Manage Properties",
+    "manageGuests": "Manage Guests"
+  },
+  "bookingManagement": {
+    "title": "Booking Management",
+    "addBooking": "Add Booking",
+    "errorLoading": "Error loading bookings:",
+    "guestUpdateSuccess": "Guest details updated successfully!",
+    "guestUpdateErrorCloud": "Failed to update guest via Cloud Function.",
+    "guestUpdateErrorGeneric": "An error occurred while updating guest details."
+  },
+  "actions": {
+    "save": "Save",
+    "close": "Close"
+  },
+   "registrationDetails": {
+    "editTitle": "Edit Registration",
+    "viewTitle": "View Registration Details",
+    "errorNotFound": "Registration not found.",
+    "errorLoading": "Error loading details:",
+    "errorSaving": "Error saving changes:"
+  },
+  "documentTypes": {
+    "Passport": "Passport",
+    "ID Card": "ID Card",
+    "Driving License": "Driving License",
+    "Residence Permit": "Residence Permit",
+    "Other": "Other"
   }
 } 

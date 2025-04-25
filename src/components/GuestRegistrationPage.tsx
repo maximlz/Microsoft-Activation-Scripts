@@ -528,6 +528,7 @@ const GuestRegistrationPage: React.FC = () => {
                             onSubmit={handleSaveGuest}
                             isSaving={isSavingGuest}
                             initialData={editingGuestData || undefined}
+                            isEditMode={!!editingGuestId}
                         />
                         
                         <Box className="cancel-edit-button-container">

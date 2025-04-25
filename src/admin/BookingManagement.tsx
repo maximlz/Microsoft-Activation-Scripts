@@ -52,9 +52,10 @@ interface AddBookingModalProps {
     initialData?: IBookingWithId | null;
     isViewMode?: boolean; // <-- Добавляем проп для режима просмотра
     onGuestClick: (guestId: string) => void; // <-- Новый проп для клика по гостю
+    guestUpdateTimestamp: number | null; // <-- Добавляем новый проп для обновления списка гостей
 }
 
-const AddBookingModal: React.FC<AddBookingModalProps> = ({ open, onClose, onSave, isSaving, initialData, isViewMode, onGuestClick }) => {
+const AddBookingModal: React.FC<AddBookingModalProps> = ({ open, onClose, onSave, isSaving, initialData, isViewMode, onGuestClick, guestUpdateTimestamp }) => {
     const [formData, setFormData] = useState<Partial<Omit<IBooking, 'registrationToken' | 'createdAt' | 'mainGuestName' | 'guestCount' | 'notes'> & { id?: string }>>({});
     const [formError, setFormError] = useState<string | null>(null);
     const [properties, setProperties] = useState<IPropertyWithId[]>([]);
@@ -94,33 +95,32 @@ const AddBookingModal: React.FC<AddBookingModalProps> = ({ open, onClose, onSave
 
     // Загрузка связанных гостей при редактировании
     useEffect(() => {
+        const fetchGuests = async () => {
+            setLoadingGuests(true);
+            setGuestsError(null);
+            setAssociatedGuests([]);
+            try {
+                const guestsRef = collection(db, 'guests');
+                const q = query(guestsRef, where("bookingConfirmationCode", "==", initialData!.confirmationCode));
+                const querySnapshot = await getDocs(q);
+                const guests = querySnapshot.docs.map(doc => ({ ...(doc.data() as IGuestFormData), id: doc.id }));
+                setAssociatedGuests(guests);
+            } catch (err) {
+                console.error("Error fetching associated guests:", err);
+                setGuestsError('Failed to load associated guests.');
+            } finally {
+                setLoadingGuests(false);
+            }
+        };
+
         if (isEditMode && initialData?.confirmationCode && open) {
-            const fetchGuests = async () => {
-                setLoadingGuests(true);
-                setGuestsError(null);
-                setAssociatedGuests([]);
-                try {
-                    const guestsRef = collection(db, 'guests');
-                    // Ищем гостей по bookingConfirmationCode
-                    const q = query(guestsRef, where("bookingConfirmationCode", "==", initialData.confirmationCode));
-                    const querySnapshot = await getDocs(q);
-                    const guests = querySnapshot.docs.map(doc => ({ ...(doc.data() as IGuestFormData), id: doc.id }));
-                    setAssociatedGuests(guests);
-                } catch (err) {
-                    console.error("Error fetching associated guests:", err);
-                    setGuestsError('Failed to load associated guests.');
-                } finally {
-                    setLoadingGuests(false);
-                }
-            };
             fetchGuests();
         } else {
-            // Сбрасываем гостей, если не режим редактирования или нет кода
             setAssociatedGuests([]);
             setLoadingGuests(false);
             setGuestsError(null);
         }
-    }, [isEditMode, initialData?.confirmationCode, open]);
+    }, [isEditMode, initialData?.confirmationCode, open, guestUpdateTimestamp]);
 
     // Предзаполнение формы при редактировании
     useEffect(() => {
@@ -559,6 +559,7 @@ const BookingManagement: React.FC = () => {
     // <-- Новые состояния для модального окна деталей гостя -->
     const [isGuestDetailsModalOpen, setIsGuestDetailsModalOpen] = useState(false);
     const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
+    const [guestUpdateTimestamp, setGuestUpdateTimestamp] = useState<number | null>(null); // <-- Добавляем состояние
     
     // Возвращаем fetchBookings в область видимости компонента и оборачиваем в useCallback
     const fetchBookings = useCallback(async (showLoading = true) => {
@@ -725,7 +726,6 @@ const BookingManagement: React.FC = () => {
         if (!id) return;
         setError(null); // Сбрасываем общую ошибку (если есть)
 
-        // Создаем объект с данными для Cloud Function, исключая потенциально лишние поля
         const guestDataToUpdate: Partial<IGuestFormData> = {
             firstName: data.firstName,
             lastName: data.lastName,
@@ -740,11 +740,11 @@ const BookingManagement: React.FC = () => {
             email: data.email,
             countryResidence: data.countryResidence,
             residenceAddress: data.residenceAddress,
+            apartmentNumber: data.apartmentNumber, // Добавляем квартиру
             city: data.city,
             postcode: data.postcode,
             visitDate: data.visitDate,
             countryCode: data.countryCode,
-            // bookingId и bookingConfirmationCode НЕ ДОЛЖНЫ обновляться здесь
         };
 
         try {
@@ -758,13 +758,10 @@ const BookingManagement: React.FC = () => {
                     message: t('bookingManagement.guestUpdateSuccess', 'Guest details updated successfully!'),
                     severity: 'success'
                 });
-                handleCloseGuestDetailsModal();
-                // Опционально: Обновить список гостей в модалке бронирования, если она открыта
-                // Это потребует передачи функции обновления в AddBookingModal или повторного запроса гостей
+                setGuestUpdateTimestamp(Date.now()); // <-- Обновляем timestamp при успехе
+                handleCloseGuestDetailsModal(); 
                 // TODO: Решить, нужно ли немедленное обновление списка гостей в AddBookingModal
-
-                // Опционально: Обновить список бронирований, если данные гостя влияют на отображение
-                // fetchBookings(false); // Например, если mainGuestName как-то вычисляется
+                // fetchBookings(false); // Не требуется для списка гостей
             } else {
                 console.error(`Cloud Function updateGuest failed for ${id}:`, result.data.error);
                 throw new Error(result.data.error || t('bookingManagement.guestUpdateErrorCloud', 'Failed to update guest via Cloud Function.'));
@@ -772,14 +769,12 @@ const BookingManagement: React.FC = () => {
 
         } catch (err: any) {
             console.error(`Error calling updateGuest Cloud Function for ${id}: `, err);
-            // Попытка извлечь сообщение об ошибке из HttpsError
             const message = err.details?.message || err.message || t('bookingManagement.guestUpdateErrorGeneric', 'An error occurred while updating guest details.');
             setSnackbar({
                 open: true,
                 message: message,
                 severity: 'error'
             });
-            // Оставляем модалку открытой при ошибке
         }
     };
 
@@ -852,7 +847,8 @@ const BookingManagement: React.FC = () => {
                 isSaving={isSaving}
                 initialData={editingBooking}
                 isViewMode={isViewMode}
-                onGuestClick={handleOpenGuestDetails} // <-- Передаем новый обработчик
+                onGuestClick={handleOpenGuestDetails}
+                guestUpdateTimestamp={guestUpdateTimestamp}
             />
 
             {/* Модальное окно деталей гостя */}

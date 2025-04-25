@@ -19,13 +19,15 @@
   "postcode": "Почтовый Индекс",
   "visitDate": "Дата Визита",
   "submitButton": "Зарегистрировать Гостя",
+  "updateButton": "Обновить Гостя",
   "choosePlaceholder": "Выбрать...",
   "loadingPlaceholder": "Загрузка...",
   "placeholders": {
     "selectCountry": "Выбрать страну...",
     "selectSex": "Выбрать пол...",
     "selectDocType": "Выбрать тип документа...",
-    "streetAddressOnly": "Введите улицу и номер дома"
+    "streetAddressOnly": "Введите улицу и номер дома",
+    "apartmentNumberOptional": "Кв./Офис (Необязательно)"
   },
   "sexOptions": {
     "Female": "Женский",
@@ -96,5 +98,71 @@
     "createSuccess": "Гость успешно добавлен!",
     "updateSuccess": "Гость успешно обновлен!",
     "deleteSuccess": "Гость успешно удален!"
+  },
+  "formLabels": {
+    "firstName": "Имя",
+    "lastName": "Фамилия",
+    "secondLastName": "Вторая фамилия",
+    "birthDate": "Дата рождения",
+    "nationality": "Гражданство",
+    "sex": "Пол",
+    "documentType": "Тип документа",
+    "documentNumber": "Номер документа",
+    "documentSupNum": "Доп. номер",
+    "phone": "Телефон",
+    "email": "Электронная почта",
+    "countryResidence": "Страна проживания",
+    "residenceAddress": "Адрес",
+    "apartmentNumber": "Кв./Офис",
+    "apartmentNumberOptional": "Кв./Офис (Необязательно)",
+    "city": "Город",
+    "postcode": "Почтовый индекс",
+    "visitDate": "Дата въезда",
+    "timestamp": "Зарегистрирован"
+  },
+  "selectPlaceholder": "Выберите...",
+  "registrationSuccessTitle": "Регистрация прошла успешно!",
+  "registrationSuccessMessage": "Спасибо за регистрацию. Ваши данные отправлены.",
+  "registrationErrorTitle": "Ошибка регистрации",
+  "registrationErrorMessage": "Во время регистрации произошла ошибка. Пожалуйста, попробуйте позже.",
+  "adminLogin": {
+    "title": "Вход для администратора",
+    "emailLabel": "Email",
+    "passwordLabel": "Пароль",
+    "loginButton": "Войти",
+    "logoutButton": "Выйти",
+    "loginFailed": "Ошибка входа. Проверьте введенные данные."
+  },
+  "dashboard": {
+    "title": "Панель администратора",
+    "manageBookings": "Управление бронированиями",
+    "manageProperties": "Управление объектами",
+    "manageGuests": "Управление гостями"
+  },
+  "bookingManagement": {
+    "title": "Управление бронированиями",
+    "addBooking": "Добавить бронирование",
+    "errorLoading": "Ошибка загрузки бронирований:",
+    "guestUpdateSuccess": "Данные гостя успешно обновлены!",
+    "guestUpdateErrorCloud": "Не удалось обновить гостя через Cloud Function.",
+    "guestUpdateErrorGeneric": "Произошла ошибка при обновлении данных гостя."
+  },
+  "actions": {
+    "save": "Сохранить",
+    "close": "Закрыть"
+  },
+  "registrationDetails": {
+    "editTitle": "Редактировать регистрацию",
+    "viewTitle": "Просмотр деталей регистрации",
+    "errorNotFound": "Регистрация не найдена.",
+    "errorLoading": "Ошибка загрузки деталей:",
+    "errorSaving": "Ошибка сохранения изменений:"
+  },
+  "documentTypes": {
+    "Passport": "Паспорт",
+    "ID Card": "ID Карта",
+    "Driving License": "Водительское удостоверение",
+    "Residence Permit": "Вид на жительство",
+    "Other": "Другое"
   }
 } 

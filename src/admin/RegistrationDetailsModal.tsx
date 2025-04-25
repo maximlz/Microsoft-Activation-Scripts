@@ -20,11 +20,18 @@ interface RegistrationDetailsModalProps {
   onSave: (id: string, data: IGuestFormData) => Promise<void>; 
 }
 
-const renderReadOnlyField = (label: string, value: string | Timestamp | undefined | null, isDate: boolean = false) => (
+// Модифицируем renderReadOnlyField для объединения адреса и квартиры
+const renderReadOnlyField = (
+    label: string, 
+    value: string | Timestamp | undefined | null, 
+    isDate: boolean = false,
+    fullAddress: string | undefined = undefined // Доп. параметр для полного адреса
+) => (
     <Grid item xs={12} sm={6} key={label}>
         <TextField
             label={label}
-            value={isDate ? formatDateDDMMYYYY(value as (Timestamp | string | undefined | null)) : (value || '-')}
+            // Используем fullAddress если он передан, иначе стандартное значение
+            value={fullAddress ?? (isDate ? formatDateDDMMYYYY(value as (Timestamp | string | undefined | null)) : (value || '-'))}
             InputProps={{ readOnly: true }}
             variant="outlined"
             fullWidth
@@ -137,6 +144,16 @@ function RegistrationDetailsModal({ open, onClose, registrationId, isEditMode, o
         setValue('phone', newValue, { shouldValidate: true, shouldTouch: true, shouldDirty: true });
         setPhoneInfo(info);
     };
+
+    // Helper для форматирования полного адреса в режиме просмотра
+    const formatFullAddress = (data: IGuestFormData | null): string | undefined => {
+        if (!data?.residenceAddress) return undefined;
+        let address = data.residenceAddress;
+        if (data.apartmentNumber) {
+            address += `, ${data.apartmentNumber}`;
+        }
+        return address;
+    }
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
@@ -258,16 +275,8 @@ function RegistrationDetailsModal({ open, onClose, registrationId, isEditMode, o
                                         />
                                     </Grid>
                                     <Grid item xs={12} sm={6}>
-                                        <FormControl 
-                                            key={`nationality-${registrationId || 'new'}`} 
-                                            fullWidth 
-                                            margin="dense" 
-                                            error={!!errors.nationality} 
-                                            required
-                                        >
-                                            <InputLabel id="nationality-label">
-                                                {t('formLabels.nationality', 'Nationality')}
-                                            </InputLabel>
+                                        <FormControl fullWidth margin="dense" error={!!errors.nationality} required>
+                                            <InputLabel id="nationality-label">{t('formLabels.nationality', 'Nationality')}</InputLabel>
                                             <Controller
                                                 name="nationality"
                                                 control={control}
@@ -278,8 +287,9 @@ function RegistrationDetailsModal({ open, onClose, registrationId, isEditMode, o
                                                             {...field}
                                                             value={field.value ?? ''} 
                                                             labelId="nationality-label" 
-                                                            label={t('formLabels.nationality', 'Nationality')} 
+                                                            label={t('formLabels.nationality', 'Nationality')}
                                                             disabled={loadingCountries}
+                                                            displayEmpty
                                                         >
                                                             <MenuItem value="" disabled><em>{loadingCountries ? t('loading') : t('selectPlaceholder')}</em></MenuItem> 
                                                             {countries.map((country) => (
@@ -295,16 +305,8 @@ function RegistrationDetailsModal({ open, onClose, registrationId, isEditMode, o
                                         </FormControl>
                                     </Grid>
                                     <Grid item xs={12} sm={6}>
-                                        <FormControl 
-                                            key={`sex-${registrationId || 'new'}`} 
-                                            fullWidth 
-                                            margin="dense" 
-                                            error={!!errors.sex} 
-                                            required
-                                        >
-                                            <InputLabel id="sex-label">
-                                                {t('formLabels.sex', 'Sex')}
-                                            </InputLabel>
+                                        <FormControl fullWidth margin="dense" error={!!errors.sex} required>
+                                            <InputLabel id="sex-label">{t('formLabels.sex', 'Sex')}</InputLabel>
                                             <Controller
                                                 name="sex"
                                                 control={control}
@@ -315,6 +317,7 @@ function RegistrationDetailsModal({ open, onClose, registrationId, isEditMode, o
                                                         value={field.value ?? ''} 
                                                         labelId="sex-label"
                                                         label={t('formLabels.sex', 'Sex')}
+                                                        displayEmpty
                                                     >
                                                         <MenuItem value="" disabled><em>{t('selectPlaceholder')}</em></MenuItem>
                                                         {sexOptions.map((option) => (
@@ -329,16 +332,8 @@ function RegistrationDetailsModal({ open, onClose, registrationId, isEditMode, o
                                         </FormControl>
                                     </Grid>
                                     <Grid item xs={12} sm={6}>
-                                        <FormControl 
-                                            key={`documentType-${registrationId || 'new'}`} 
-                                            fullWidth 
-                                            margin="dense" 
-                                            error={!!errors.documentType} 
-                                            required
-                                        >
-                                            <InputLabel id="documentType-label">
-                                                {t('formLabels.documentType', 'Document Type')}
-                                            </InputLabel>
+                                        <FormControl fullWidth margin="dense" error={!!errors.documentType} required>
+                                            <InputLabel id="documentType-label">{t('formLabels.documentType', 'Document Type')}</InputLabel>
                                             <Controller
                                                 name="documentType"
                                                 control={control}
@@ -349,6 +344,7 @@ function RegistrationDetailsModal({ open, onClose, registrationId, isEditMode, o
                                                         value={field.value ?? ''} 
                                                         labelId="documentType-label"
                                                         label={t('formLabels.documentType', 'Document Type')}
+                                                        displayEmpty
                                                     >
                                                         <MenuItem value="" disabled><em>{t('selectPlaceholder')}</em></MenuItem>
                                                         {documentTypeOptions.map((option) => (
@@ -416,7 +412,6 @@ function RegistrationDetailsModal({ open, onClose, registrationId, isEditMode, o
                                                     onChange={handlePhoneChange}
                                                     fullWidth
                                                     required
-                                                    InputLabelProps={{ shrink: true }}
                                                     error={fieldState.invalid}
                                                     helperText={fieldState.error ? getErrorMessage(fieldState.error) : ''}
                                                     variant="outlined"
@@ -426,16 +421,8 @@ function RegistrationDetailsModal({ open, onClose, registrationId, isEditMode, o
                                         />
                                     </Grid>
                                     <Grid item xs={12} sm={6}>
-                                        <FormControl 
-                                            key={`countryResidence-${registrationId || 'new'}`} 
-                                            fullWidth 
-                                            margin="dense" 
-                                            error={!!errors.countryResidence} 
-                                            required
-                                        >
-                                            <InputLabel id="countryResidence-label">
-                                                {t('formLabels.countryResidence', 'Country of Residence')}
-                                            </InputLabel>
+                                        <FormControl fullWidth margin="dense" error={!!errors.countryResidence} required>
+                                            <InputLabel id="countryResidence-label">{t('formLabels.countryResidence', 'Country of Residence')}</InputLabel>
                                             <Controller
                                                 name="countryResidence"
                                                 control={control}
@@ -447,6 +434,7 @@ function RegistrationDetailsModal({ open, onClose, registrationId, isEditMode, o
                                                         labelId="countryResidence-label"
                                                         label={t('formLabels.countryResidence', 'Country of Residence')}
                                                         disabled={loadingCountries}
+                                                        displayEmpty
                                                     >
                                                         <MenuItem value="" disabled><em>{loadingCountries ? t('loading') : t('selectPlaceholder')}</em></MenuItem>
                                                         {countries.map((country) => (
@@ -476,6 +464,26 @@ function RegistrationDetailsModal({ open, onClose, registrationId, isEditMode, o
                                                     InputLabelProps={{ shrink: true }}
                                                     error={!!errors.residenceAddress}
                                                     helperText={errors.residenceAddress ? getErrorMessage(errors.residenceAddress) : ''}
+                                                />
+                                            )}
+                                        />
+                                    </Grid>
+                                    <Grid item xs={12} sm={6}>
+                                        <Controller
+                                            name="apartmentNumber"
+                                            control={control}
+                                            defaultValue={registrationData?.apartmentNumber || ''}
+                                            render={({ field }) => (
+                                                <TextField
+                                                    {...field}
+                                                    label={t('formLabels.apartmentNumber')}
+                                                    placeholder={t('placeholders.apartmentNumberOptional')}
+                                                    variant="outlined"
+                                                    fullWidth
+                                                    margin="dense"
+                                                    InputLabelProps={{ shrink: true }}
+                                                    error={!!errors.apartmentNumber}
+                                                    helperText={errors.apartmentNumber ? getErrorMessage(errors.apartmentNumber) : ''}
                                                 />
                                             )}
                                         />
@@ -559,9 +567,14 @@ function RegistrationDetailsModal({ open, onClose, registrationId, isEditMode, o
                                     {renderReadOnlyField(t('formLabels.documentSupNum', 'Support Number'), registrationData.documentSupNum)}
                                     {renderReadOnlyField(t('formLabels.phone', 'Phone'), registrationData.phone)}
                                     {renderReadOnlyField(t('formLabels.countryResidence', 'Country of Residence'), registrationData.countryResidence)}
-                                    {renderReadOnlyField(t('formLabels.residenceAddress', 'Address'), registrationData.residenceAddress)}
                                     {renderReadOnlyField(t('formLabels.city', 'City'), registrationData.city)}
                                     {renderReadOnlyField(t('formLabels.postcode', 'Postcode'), registrationData.postcode)}
+                                    {renderReadOnlyField(
+                                        t('formLabels.residenceAddress', 'Address'), 
+                                        registrationData.residenceAddress,
+                                        false,
+                                        formatFullAddress(registrationData)
+                                    )}
                                     {renderReadOnlyField(t('formLabels.visitDate', 'Visit Date'), registrationData.visitDate, true)}
                                 </>
                             )}

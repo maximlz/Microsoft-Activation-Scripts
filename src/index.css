@@ -204,9 +204,11 @@ button:focus-visible {
   }
 }
 
-.required-star {
-  color: red;
-  margin-left: 4px; /* Add some space before the star */
+/* Новое правило для стилизации стандартной звездочки MUI */
+.MuiInputLabel-asterisk,
+.MuiFormLabel-asterisk {
+  color: red; 
+  margin-left: 2px; /* Немного уменьшим отступ для стандартной звездочки */
 }
 
 /* ===== Стили для GuestForm ===== */

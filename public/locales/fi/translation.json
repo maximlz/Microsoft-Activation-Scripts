@@ -19,13 +19,36 @@
   "postcode": "Postinumero",
   "visitDate": "Käyntipäivä",
   "submitButton": "Rekisteröi vieras",
+  "updateButton": "Uppdatera Gäst",
   "choosePlaceholder": "Valitse...",
   "loadingPlaceholder": "Ladataan...",
+  "formLabels": {
+    "firstName": "Etunimi",
+    "lastName": "Sukunimi",
+    "secondLastName": "Toinen sukunimi",
+    "birthDate": "Syntymäaika",
+    "nationality": "Kansalaisuus",
+    "sex": "Sukupuoli",
+    "documentType": "Asiakirjan tyyppi",
+    "documentNumber": "Asiakirjan numero",
+    "documentSupNum": "Asiakirjan tukinumero",
+    "phone": "Puhelin",
+    "email": "Sähköposti",
+    "countryResidence": "Asuinmaa",
+    "residenceAddress": "Asuinosoite",
+    "apartmentNumber": "Huoneisto/Asunto",
+    "apartmentNumberOptional": "Huoneisto/Asunto (valinnainen)",
+    "city": "Kaupunki",
+    "postcode": "Postinumero",
+    "visitDate": "Käyntipäivä",
+    "timestamp": "Rekisteröitynyt"
+  },
   "placeholders": {
     "selectCountry": "Valitse maa...",
     "selectSex": "Valitse sukupuoli...",
     "selectDocType": "Valitse asiakirjatyyppi...",
-    "streetAddressOnly": "Syötä katuosoite ja numero"
+    "streetAddressOnly": "Syötä katuosoite ja numero",
+    "apartmentNumberOptional": "Huoneisto/Asunto (Valinnainen)"
   },
   "sexOptions": {
     "Female": "Nainen",
@@ -57,9 +80,55 @@
     "googleMapsLoadError": "Virhe ladattaessa Google Maps APIa. Osoitteen automaattinen täydennys ei toimi.",
     "patternEmail": "{{field}} muoto on virheellinen",
     "validatePhone": "Anna kelvollinen puhelinnumero",
-    "futureDateRequired": "Käyntipäivä ei voi olla ennen nykyistä päivämäärää."
+    "futureDateRequired": "Käyntipäivä ei voi olla ennen nykyistä päivämäärää.",
+    "validateMinAge": "Gästen måste vara minst 16 år gammal",
+    "validateVisitDate": "Ankomstdatum kan inte vara i det förflutna"
   },
   "successMessage": "Vieras rekisteröity onnistuneesti!",
   "errorMessage": "Vieraan rekisteröinti epäonnistui. Yritä uudelleen.",
-  "homeAddress": "Kotikatu"
+  "homeAddress": "Kotikatu",
+  "registrationSuccessTitle": "Registreringen lyckades!",
+  "registrationSuccessMessage": "Tack för din registrering. Dina uppgifter har skickats.",
+  "registrationErrorTitle": "Registreringen misslyckades",
+  "registrationErrorMessage": "Ett fel inträffade vid registreringen. Försök igen senare.",
+  "adminLogin": {
+    "title": "Admin Inloggning",
+    "emailLabel": "E-post",
+    "passwordLabel": "Lösenord",
+    "loginButton": "Logga in",
+    "logoutButton": "Logga ut",
+    "loginFailed": "Inloggningen misslyckades. Kontrollera dina uppgifter."
+  },
+  "dashboard": {
+    "title": "Admin Kontrollpanel",
+    "manageBookings": "Hantera Bokningar",
+    "manageProperties": "Hantera Fastigheter",
+    "manageGuests": "Hantera Gäster"
+  },
+  "bookingManagement": {
+    "title": "Bokningshantering",
+    "addBooking": "Lägg till Bokning",
+    "errorLoading": "Fel vid laddning av bokningar:",
+    "guestUpdateSuccess": "Gästuppgifter uppdaterade!",
+    "guestUpdateErrorCloud": "Kunde inte uppdatera gäst via Cloud Function.",
+    "guestUpdateErrorGeneric": "Ett fel inträffade vid uppdatering av gästuppgifter."
+  },
+  "actions": {
+    "save": "Spara",
+    "close": "Stäng"
+  },
+  "registrationDetails": {
+    "editTitle": "Redigera Registrering",
+    "viewTitle": "Visa Registreringsdetaljer",
+    "errorNotFound": "Registreringen hittades inte.",
+    "errorLoading": "Fel vid laddning av detaljer:",
+    "errorSaving": "Fel vid sparande av ändringar:"
+  },
+  "documentTypes": {
+    "Passport": "Pass",
+    "ID Card": "ID-kort",
+    "Driving License": "Körkort",
+    "Residence Permit": "Uppehållstillstånd",
+    "Other": "Annat"
+  }
 } 
