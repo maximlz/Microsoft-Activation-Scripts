@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, updateDoc, collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { doc, updateDoc, collection, query, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
 import { getFunctions, httpsCallable } from "firebase/functions";
-import { IBooking, IBookingWithId, IGuestFormData, IGuestFormDataWithId, IGuestFormShape, Country } from '../types/guestTypes';
+import { IGuestFormData, IGuestFormShape, Country } from '../types/guestTypes';
 import GuestForm from './GuestForm'; // Импортируем ТОЛЬКО GuestForm
 import { Container, Typography, Box, CircularProgress, Alert, Button, Paper, List, ListItem, Divider, Grid, Card, CardContent, Avatar, Chip, IconButton, Tooltip, Snackbar } from '@mui/material';
 import { useTranslation } from 'react-i18next';
@@ -17,12 +17,52 @@ import PersonIcon from '@mui/icons-material/Person';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ConfirmationDialog from './ConfirmationDialog';
-
-// ---> ИСПРАВЛЕННЫЕ ИМПОРТЫ <---
-// import { guestConverter, formatDateDDMMYYYY } from '../admin/RegistrationsList'; // Старый импорт
-import { guestConverter } from '../config/firebaseConverters';
 import { formatDateDDMMYYYY } from '../utils/formatters';
-// -------------------------------
+
+// --- Типы для результата Cloud Function --- 
+interface BookingDataForGuest {
+  id: string;
+  propertyName: string;
+  checkInDate: string;
+  checkOutDate: string;
+  confirmationCode: string;
+  registeredGuests: RegisteredGuestState[]; // Используем новый тип
+}
+
+interface GetBookingDetailsResult {
+  success: boolean;
+  booking?: BookingDataForGuest;
+  error?: string;
+}
+
+// --- НОВЫЕ Типы для состояния компонента --- 
+// Тип для деталей бронирования, хранящихся в состоянии
+type BookingDetailsState = Omit<BookingDataForGuest, 'registeredGuests'> | null;
+// Тип для данных гостя, хранящихся в состоянии
+type RegisteredGuestState = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  nationality: string; // Добавляем для Chip
+  documentType: string; // Добавляем для отображения
+  documentNumber: string; // Добавляем для отображения
+  passportPhotoUrl?: string;
+  // Добавляем остальные поля, необходимые для handleEditGuestClick
+  secondLastName?: string;
+  birthDate?: string;
+  sex?: string;
+  documentSupNum?: string;
+  phone?: string;
+  email?: string;
+  countryResidence?: string;
+  residenceAddress?: string;
+  apartmentNumber?: string;
+  city?: string;
+  postcode?: string;
+  visitDate?: string;
+  countryCode?: string; // Хотя он не нужен для формы, оставляем для полноты
+};
+// --------------------------------------------
 
 // Тип для состояния Snackbar
 type SnackbarState = { open: boolean; message: string; severity: 'success' | 'error' } | null;
@@ -32,8 +72,8 @@ const GuestRegistrationPage: React.FC = () => {
     const navigate = useNavigate();
     const { t } = useTranslation();
 
-    const [bookingDetails, setBookingDetails] = useState<IBookingWithId | null>(null);
-    const [registeredGuests, setRegisteredGuests] = useState<IGuestFormDataWithId[]>([]);
+    const [bookingDetails, setBookingDetails] = useState<BookingDetailsState>(null);
+    const [registeredGuests, setRegisteredGuests] = useState<RegisteredGuestState[]>([]);
     const [isLoadingBooking, setIsLoadingBooking] = useState(true);
     const [isLoadingGuests, setIsLoadingGuests] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -80,54 +120,51 @@ const GuestRegistrationPage: React.FC = () => {
     // --- Загрузка данных бронирования и гостей --- 
     const fetchBookingAndGuests = useCallback(async () => {
         if (!token) {
-            setError('Registration token is missing.');
+            setError(t('errors.missingToken', 'Registration token is missing.'));
             setIsLoadingBooking(false);
             return;
         }
         setIsLoadingBooking(true);
         setError(null);
         setRegisteredGuests([]); // Сбрасываем гостей перед загрузкой
+        setBookingDetails(null); // Сбрасываем детали бронирования
 
         try {
-            const bookingsRef = collection(db, 'bookings');
-            const q = query(bookingsRef, where("registrationToken", "==", token));
-            const querySnapshot = await getDocs(q);
+            const functionsInstance = getFunctions();
+            const callGetBookingDetails = httpsCallable<
+                { token: string }, 
+                GetBookingDetailsResult 
+            >(functionsInstance, 'getBookingDetailsByToken');
 
-            if (querySnapshot.empty) {
-                setError('Invalid or expired registration link.');
-                setIsLoadingBooking(false);
-                return;
+            console.log(`Calling getBookingDetailsByToken for token: ${token}`);
+            const result = await callGetBookingDetails({ token });
+
+            if (result.data.success && result.data.booking) {
+                console.log("Booking details fetched successfully via function:", result.data.booking);
+                const { registeredGuests: guestsFromFunc, ...bookingDataFromFunc } = result.data.booking;
+                
+                // Теперь типы совпадают
+                setBookingDetails(bookingDataFromFunc); 
+                setRegisteredGuests(guestsFromFunc);
+                
+                setIsLoadingGuests(false); 
+
+            } else {
+                 console.error("Cloud Function (getBookingDetailsByToken) failed:", result.data.error);
+                 const errorMessage = result.data.error || t('errors.fetchBookingGeneric', 'Failed to load registration details.');
+                 setError(errorMessage);
             }
-
-            const bookingDoc = querySnapshot.docs[0];
-            const bookingData = { ...bookingDoc.data() as IBooking, id: bookingDoc.id };
-
-            if (bookingData.status !== 'pending') {
-                setError('This registration link has already been used or expired.');
-                setIsLoadingBooking(false);
-                return;
+        } catch (err: any) {
+            console.error("Error calling getBookingDetailsByToken function:", err);
+            let message = t('errors.fetchBookingGeneric', 'Failed to load registration details. Please try again later.');
+            // Обрабатываем ошибки HttpsError
+            if (err.code && err.message) {
+                // Используем сообщение из ошибки HttpsError, если оно есть
+                message = err.message; 
+            } else if (err instanceof Error) {
+                message = err.message;
             }
-
-            setBookingDetails(bookingData);
-
-            // Загружаем гостей, если есть confirmationCode
-            if (bookingData.confirmationCode) {
-                setIsLoadingGuests(true);
-                try {
-                    const guestsRef = collection(db, 'guests').withConverter(guestConverter);
-                    const guestsQuery = query(guestsRef, where("bookingConfirmationCode", "==", bookingData.confirmationCode), orderBy('timestamp', 'asc'));
-                    const guestsSnapshot = await getDocs(guestsQuery);
-                    setRegisteredGuests(guestsSnapshot.docs.map(doc => doc.data()));
-                } catch (guestErr) {
-                    console.error("Error fetching registered guests:", guestErr);
-                    // Не блокируем всю страницу, но можно показать предупреждение
-                } finally {
-                    setIsLoadingGuests(false);
-                }
-            }
-        } catch (err) {
-            console.error("Error fetching booking details:", err);
-            setError('Failed to load registration details. Please try again later.');
+            setError(message);
         } finally {
             setIsLoadingBooking(false);
         }
@@ -169,6 +206,9 @@ const GuestRegistrationPage: React.FC = () => {
             // Для создания добавляем bookingId и confirmationCode
             const dataToCreate: IGuestFormData = {
                 ...guestData,
+                // Добавляем утверждения non-null, так как данные прошли валидацию в форме
+                birthDate: guestData.birthDate!, 
+                visitDate: guestData.visitDate!, 
                 bookingConfirmationCode: bookingDetails!.confirmationCode,
                 bookingId: bookingDetails!.id,
             };
@@ -239,13 +279,13 @@ const GuestRegistrationPage: React.FC = () => {
     };
 
     // --- Новые обработчики для кнопок --- 
-    const handleEditGuestClick = (guest: IGuestFormDataWithId) => {
+    const handleEditGuestClick = (guest: RegisteredGuestState) => {
         console.log("Editing guest:", guest);
-        const { id, bookingConfirmationCode, bookingId, timestamp, ...formData } = guest; 
+        const { id, ...formData } = guest; 
         setEditingGuestId(id);
-        setEditingGuestData(formData); // Сохраняем данные для формы, включая apartmentNumber
-        setGuestSaveError(null); // Сбрасываем прошлые ошибки формы
-        setIsFormVisible(true); // Показываем форму
+        setEditingGuestData(formData as IGuestFormShape);
+        setGuestSaveError(null);
+        setIsFormVisible(true);
     };
 
     const handleDeleteGuestClick = (guestId: string) => {
@@ -529,6 +569,8 @@ const GuestRegistrationPage: React.FC = () => {
                             isSaving={isSavingGuest}
                             initialData={editingGuestData || undefined}
                             isEditMode={!!editingGuestId}
+                            registrationToken={token || ''}
+                            editingGuestId={editingGuestId}
                         />
                         
                         <Box className="cancel-edit-button-container">

@@ -41,6 +41,7 @@ export interface IGuestFormData {
     bookingConfirmationCode?: string; // <-- КОД БРОНИРОВАНИЯ ДЛЯ СВЯЗИ
     timestamp?: Timestamp; // Добавлено для сортировки/информации
     bookingId?: string; // <-- ДОБАВЛЯЕМ ID БРОНИРОВАНИЯ
+    passportPhotoUrl?: string; // <-- Добавляем URL фото паспорта
 }
 
 // Расширенный интерфейс, включающий ID документа Firestore
@@ -54,7 +55,7 @@ export interface IGuestFormShape {
   firstName: string;
   lastName: string;
   secondLastName?: string;
-  birthDate: string;
+  birthDate?: string;
   nationality: string;
   sex: string;
   documentType: string;
@@ -67,7 +68,8 @@ export interface IGuestFormShape {
   apartmentNumber?: string;
   city: string;
   postcode: string;
-  visitDate: string;
+  visitDate?: string;
+  passportPhotoUrl?: string; // <-- Добавляем URL фото паспорта
 }
 // --- Конец нового интерфейса --- 
 

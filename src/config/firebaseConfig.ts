@@ -2,6 +2,7 @@ import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth"; // Раскомментируем
 // import { getAuth } from "firebase/auth"; // Раскомментируйте, если понадобится Firebase Auth
+import { getStorage } from "firebase/storage";
 
 // Считываем конфигурационные данные Firebase из переменных окружения
 const firebaseConfig = {
@@ -30,5 +31,8 @@ const db = getFirestore(app);
 const auth = getAuth(app); // Раскомментируем
 // const auth = getAuth(app); // Раскомментируйте, если понадобится Firebase Auth
 
+// Инициализируем и экспортируем storage
+const storage = getStorage(app);
+
 // Экспорт инициализированных сервисов
-export { db, auth }; // Добавляем auth в экспорт 
+export { db, auth, storage }; // Добавляем auth и storage в экспорт 

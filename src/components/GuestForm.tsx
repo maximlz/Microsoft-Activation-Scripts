@@ -1,11 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useForm, SubmitHandler, Controller, useWatch } from 'react-hook-form';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useForm, SubmitHandler, FormProvider, SubmitErrorHandler } from 'react-hook-form';
 import {
-  Paper, Box, TextField, Button, Grid,
-  Select, MenuItem, FormControl, InputLabel, FormHelperText,
-  Container, CircularProgress, Alert
+  Paper, Box, Button, Grid, MenuItem,
+  Container, CircularProgress, Alert,
+  Typography,
+  LinearProgress,
+  IconButton,
+  Link
 } from '@mui/material';
-import { MuiTelInput, matchIsValidTel, MuiTelInputInfo } from 'mui-tel-input';
+import { MuiTelInputInfo, matchIsValidTel } from 'mui-tel-input';
 import { useTranslation } from 'react-i18next';
 import { useJsApiLoader, Autocomplete } from '@react-google-maps/api';
 // Импортируем тип формы из types
@@ -14,6 +17,24 @@ import { IGuestFormShape, IGuestFormData, Country } from '../types/guestTypes';
 import { validateMinAge, validateVisitDate } from '../utils/validators';
 // Импортируем опции для Select
 import { sexOptions, documentTypeOptions } from '../constants/formOptions';
+// Импортируем новые компоненты
+import ControlledSelect from './ControlledSelect';
+import ControlledMuiTelInput from './ControlledMuiTelInput';
+// Импортируем ControlledTextField
+import ControlledTextField from './ControlledTextField';
+// Импортируем TextField отдельно для поля адреса
+import TextField from '@mui/material/TextField';
+// Импортируем getErrorMessage
+import { getErrorMessage } from '../utils/formUtils';
+// Импортируем getFunctions
+import { getFunctions, httpsCallable, HttpsCallableResult } from "firebase/functions";
+// Добавляем иконки
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import ClearIcon from '@mui/icons-material/Clear';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+// Добавляем импорт react-dropzone и стилей
+import { useDropzone } from 'react-dropzone';
 
 // Библиотеки Google Maps для загрузки (оставляем одно определение)
 const libraries: ("places")[] = ['places'];
@@ -26,6 +47,8 @@ interface GuestFormProps {
   isSaving?: boolean; // Необязательный флаг процесса сохранения (передается извне)
   initialData?: Partial<IGuestFormShape>; // Необязательные начальные данные для формы
   isEditMode?: boolean; // Добавляем проп для режима редактирования
+  registrationToken: string; // <-- Добавляем токен регистрации
+  editingGuestId: string | null; // <-- Добавляем ID редактируемого гостя
 }
 
 const GuestForm: React.FC<GuestFormProps> = ({ 
@@ -34,30 +57,40 @@ const GuestForm: React.FC<GuestFormProps> = ({
   onSubmit, 
   isSaving: isSavingProp, 
   initialData, 
-  isEditMode
+  isEditMode,
+  registrationToken, 
+  editingGuestId // <-- Получаем ID из пропсов
 }) => {
-  console.log("GuestForm RENDERED. Loading countries:", loadingCountries, "Initial Data:", initialData);
-
   const { t } = useTranslation();
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isDirty, isValid },
-    control,
-    reset,
-    setValue,
-    trigger,
-  } = useForm<IGuestFormShape>({
-    mode: 'onTouched',
+  const methods = useForm<IGuestFormShape>({
+    mode: 'onBlur',
+    defaultValues: initialData || {
+      firstName: '',
+      lastName: '',
+      secondLastName: '',
+      birthDate: '',
+      nationality: '',
+      sex: '',
+      documentType: '',
+      documentNumber: '',
+      documentSupNum: '',
+      phone: '',
+      email: '',
+      countryResidence: '',
+      residenceAddress: '',
+      apartmentNumber: '',
+      city: '',
+      postcode: '',
+      visitDate: '',
+    }
   });
+  const { handleSubmit, formState: { errors, isDirty, isValid }, reset, setValue, trigger, setFocus, register, watch } = methods;
 
   useEffect(() => {
     if (initialData) {
-      console.log("GuestForm: Setting initial data:", initialData);
       reset(initialData);
     } else {
-      console.log("GuestForm: Resetting form (no initial data)");
       reset({
         firstName: '',
         lastName: '',
@@ -111,83 +144,113 @@ const GuestForm: React.FC<GuestFormProps> = ({
   const [cityKey, setCityKey] = useState(0);
   const [postcodeKey, setPostcodeKey] = useState(0);
 
-  const handleFormSubmit: SubmitHandler<IGuestFormShape> = async (data) => {
-    console.log("GuestForm -> handleFormSubmit called. Data:", data);
-    
-    if (isSavingProp === undefined) setIsSubmittingInternal(true);
-
-    try {
-      await onSubmit({
-        ...data,
-        countryCode: phoneInfo?.countryCode || '',
-      });
-    } catch (error) {
-      console.error("Error during onSubmit call from GuestForm:", error);
-    } finally {
-      if (isSavingProp === undefined) setIsSubmittingInternal(false);
+  const onInvalid: SubmitErrorHandler<IGuestFormShape> = (errors) => {
+    const firstErrorField = Object.keys(errors)[0] as keyof IGuestFormShape;
+    if (firstErrorField) {
+      setFocus(firstErrorField);
     }
   };
 
-  const getErrorMessage = (fieldError: any) => {
-    console.log("getErrorMessage called with:", fieldError);
-    if (!fieldError) {
-        console.log("getErrorMessage: no error object, returning null");
-        return null;
-    }
+  // Вспомогательная функция для чтения файла как base64
+  const readFileAsBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
+      reader.readAsDataURL(file); // readAsDataURL включает префикс data:mime/type;base64,
+    });
+  };
 
-    const fieldName = fieldError.ref?.name;
-    const errorType = fieldError.type;
-    const messageFromRule = fieldError.message;
+  const handleFormSubmit: SubmitHandler<IGuestFormShape> = async (data) => {
+    if (isSavingProp === undefined) setIsSubmittingInternal(true);
+    setUploadError(null); // Сбрасываем ошибки загрузки перед новой попыткой
 
-    console.log(`getErrorMessage: fieldName='${fieldName}', errorType='${errorType}', messageFromRule:`, messageFromRule);
+    let passportPhotoUrl: string | undefined = data.passportPhotoUrl; // Используем существующий URL по умолчанию
 
-    let finalMessageKey: string | null = null;
-    let lengthValue: number | string | undefined = undefined;
-    let interpolationOptions: { field: string; length?: number | string } = { field: '' };
+    // --- НОВАЯ ЛОГИКА ЗАГРУЗКИ ФАЙЛА ЧЕРЕЗ CLOUD FUNCTION --- 
+    if (selectedFile) {
+      setIsUploading(true);
+      // setUploadProgress(0); // Прогресс больше не отслеживаем напрямую
 
-    if (typeof messageFromRule === 'string' && t(messageFromRule) !== messageFromRule) {
-        finalMessageKey = messageFromRule;
-        console.log(`getErrorMessage (Key Selection): Using specific key from rule: '${finalMessageKey}'`);
-    } else {
-        const genericErrorTypeKey = `errors.${errorType}`;
-        if (errorType !== 'minLength' && errorType !== 'maxLength' && t(genericErrorTypeKey) !== genericErrorTypeKey) {
-            finalMessageKey = genericErrorTypeKey;
-            console.log(`getErrorMessage (Key Selection): Using generic key: '${finalMessageKey}'`);
-        } else if (errorType !== 'minLength' && errorType !== 'maxLength') {
-             console.log(`getErrorMessage (Key Selection): Generic key '${genericErrorTypeKey}' is not a valid translation key.`);
-        } else {
-             console.log(`getErrorMessage (Key Selection): Skipping generic key check for minLength/maxLength.`);
+      try {
+        // Читаем файл как base64
+        const fileData = await readFileAsBase64(selectedFile);
+
+        // Вызываем Cloud Function
+        const functionsInstance = getFunctions();
+        // Определяем тип возвращаемого значения функции
+        interface UploadResultData {
+          success: boolean;
+          downloadURL?: string;
+          error?: string;
         }
+        const callUploadFunction = httpsCallable<
+          { registrationToken: string; fileData: string; fileName: string; contentType: string }, 
+          UploadResultData // Используем интерфейс для результата
+        >(functionsInstance, 'uploadGuestPassport');
+
+        console.log(`Calling uploadGuestPassport for token: ${registrationToken}`);
+        const result: HttpsCallableResult<UploadResultData> = await callUploadFunction({
+          registrationToken: registrationToken,
+          fileData: fileData,         // base64 строка
+          fileName: selectedFile.name,
+          contentType: selectedFile.type,
+        });
+
+        if (result.data.success && result.data.downloadURL) {
+          passportPhotoUrl = result.data.downloadURL;
+          setValue('passportPhotoUrl', passportPhotoUrl); // Обновляем поле формы
+          setSelectedFile(null); // Очищаем выбранный файл после успеха
+          console.log('File uploaded via function. URL:', passportPhotoUrl);
+        } else {
+          console.error("Cloud Function (uploadGuestPassport) failed:", result.data.error);
+          const errorMessage = result.data.error || t('errors.uploadFailedGeneric', 'Failed to upload photo via Cloud Function.');
+          setUploadError(errorMessage);
+          // Прерываем отправку формы, если загрузка не удалась
+          if (isSavingProp === undefined) setIsSubmittingInternal(false);
+          setIsUploading(false);
+          return; 
+        }
+
+      } catch (error: any) {
+        console.error("Error calling uploadGuestPassport function:", error);
+        // Обработка ошибок вызова httpsCallable (сети, прав доступа к функции и т.д.)
+        let message = t('errors.uploadFunctionCallFailed', 'Error occurred while trying to upload the file.');
+        if (error.code && error.message) {
+             message = `Error (${error.code}): ${error.message}`;
+        } else if (error instanceof Error) {
+            message = error.message;
+        }
+        setUploadError(message);
+        // Прерываем отправку формы
+        if (isSavingProp === undefined) setIsSubmittingInternal(false);
+        setIsUploading(false);
+        return;
+      } finally {
+         setIsUploading(false); 
+         // setUploadProgress(100); // Или скрыть прогресс
+      }
+    } // --- КОНЕЦ НОВОЙ ЛОГИКИ ЗАГРУЗКИ ---
+
+    // --- ОСТАЛЬНАЯ ЛОГИКА ОТПРАВКИ (без изменений) --- 
+    try {
+      // Убеждаемся, что birthDate и visitDate точно строки
+      const dataToSend: IGuestFormData = {
+        ...data,
+          birthDate: data.birthDate!, 
+          visitDate: data.visitDate!, 
+        countryCode: phoneInfo?.countryCode || '',
+          passportPhotoUrl: passportPhotoUrl, // Используем URL (новый или старый)
+      };
+      await onSubmit(dataToSend); 
+      // Сбрасываем состояние файла здесь не нужно, т.к. сделали это после успеха загрузки
+    } catch (error) {
+      console.error("Error during onSubmit call from GuestForm:", error);
+      // Можно установить ошибку, если onSubmit фейлится ПОСЛЕ успешной загрузки
+      setUploadError(t('errors.saveGuestFailedAfterUpload', "File uploaded, but failed to save guest data."));
+    } finally {
+      if (isSavingProp === undefined) setIsSubmittingInternal(false);
     }
-
-    if (!finalMessageKey) {
-        console.log(`getErrorMessage (Key Selection): No valid key could be determined.`);
-        if (typeof messageFromRule === 'string') return messageFromRule;
-        return t('errors.invalidInput', 'Invalid input');
-    }
-
-    interpolationOptions.field = fieldName ? t(fieldName, { defaultValue: fieldName }) : t('unknownField', 'Field');
-
-    const lengthMatch = finalMessageKey.match(/^(?:errors\.)?(?:minLength|maxLength)_(\d+)$/);
-    if (lengthMatch && lengthMatch[1]) {
-        lengthValue = parseInt(lengthMatch[1], 10);
-        interpolationOptions.length = lengthValue;
-        console.log(`getErrorMessage (Length Extraction): Extracted length=${lengthValue} from key '${finalMessageKey}'`);
-    } else if (errorType === 'min' || errorType === 'max') {
-        lengthValue = fieldError.ref?.min || fieldError.ref?.max;
-        if(lengthValue !== undefined) interpolationOptions.length = lengthValue;
-        console.log(`getErrorMessage (Length Extraction): Extracted min/max value=${lengthValue} from ref for type='${errorType}'`);
-    }
-
-    console.log(`getErrorMessage (Translation): Using key='${finalMessageKey}', options=`, interpolationOptions);
-    const translatedMessage = t(finalMessageKey, interpolationOptions);
-    console.log(`getErrorMessage (Translation): Final translated message for '${finalMessageKey}'='${translatedMessage}'`);
-    return translatedMessage;
-};
-
-  const handlePhoneChange = (newValue: string, info: MuiTelInputInfo) => {
-      setValue('phone', newValue, { shouldValidate: true, shouldTouch: true });
-      setPhoneInfo(info);
   };
 
   const handleAutocompleteLoad = (autocomplete: google.maps.places.Autocomplete) => {
@@ -220,25 +283,130 @@ const GuestForm: React.FC<GuestFormProps> = ({
         if (country && countries.some(c => c.name === country)) {
           setValue('countryResidence', country, { shouldValidate: true });
         }
-        trigger(['residenceAddress', 'city', 'postcode', 'countryResidence']);
       } else {
-        trigger('residenceAddress');
       }
     } else {
       console.error("Autocomplete instance not available");
-      trigger('residenceAddress');
     }
   };
 
-  const residenceAddressValue = useWatch({ control, name: 'residenceAddress' });
+  const residenceAddressValue = methods.watch('residenceAddress');
   useEffect(() => {
     if (isLoaded) {
-      trigger('residenceAddress');
     }
   }, [residenceAddressValue, isLoaded, trigger]);
 
+  // --- НОВОЕ СОСТОЯНИЕ ДЛЯ ЗАГРУЗКИ/УДАЛЕНИЯ ФАЙЛА --- 
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState<boolean>(false);
+  const [isRemovingFile, setIsRemovingFile] = useState<boolean>(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const currentPassportPhotoUrl = watch('passportPhotoUrl');
+  // -----------------------------------------------------
+
+  // --- НОВЫЙ ОБРАБОТЧИК ДЛЯ REACT-DROPZONE --- 
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    const file = acceptedFiles[0];
+    if (file) {
+        // Валидация типа и размера (можно вынести в валидатор Dropzone)
+        const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+        if (!allowedTypes.includes(file.type)) {
+            setUploadError(t('errors.invalidFileType', 'Invalid file type. Please upload PDF, JPG, or PNG.'));
+            setSelectedFile(null);
+            return;
+        }
+        const maxSize = 5 * 1024 * 1024; 
+        if (file.size > maxSize) {
+             setUploadError(t('errors.fileTooLarge', 'File is too large. Maximum size is 5MB.'));
+             setSelectedFile(null);
+            return;
+        }
+
+        setSelectedFile(file);
+        setUploadError(null);
+        setValue('passportPhotoUrl', undefined, { shouldValidate: false }); 
+    }
+  }, [t, setValue]);
+
+  // Настройка react-dropzone
+  const {
+    getRootProps,
+    getInputProps,
+    isDragActive,
+    isFocused,
+    isDragAccept,
+    isDragReject
+  } = useDropzone({
+    onDrop,
+    accept: { 
+        'image/jpeg': ['.jpg', '.jpeg'],
+        'image/png': ['.png'],
+        'application/pdf': ['.pdf']
+    },
+    maxSize: 5 * 1024 * 1024, // 5MB
+    multiple: false // Только один файл
+  });
+
+  // Обработчик очистки ВЫБРАННОГО файла (до загрузки)
+  const handleClearFile = () => {
+      setSelectedFile(null);
+      setUploadError(null);
+      // Не нужно менять passportPhotoUrl здесь, он еще не установлен
+      // Сбрасываем значение скрытого инпута Dropzone (на всякий случай)
+      // const input = document.getElementById('passport-upload-input') as HTMLInputElement;
+      // if (input) input.value = ''; // Это может быть не нужно с Dropzone
+  };
+  // --------------------------------------
+
+  // --- ОБНОВЛЕННЫЙ обработчик удаления СУЩЕСТВУЮЩЕГО файла --- 
+  const handleRemoveExistingFile = async () => {
+    const guestIdToRemove = editingGuestId; // Захватываем ID в локальную переменную
+
+    if (!guestIdToRemove) { 
+        console.error("Cannot remove file without guest ID.");
+        setUploadError("Cannot remove file: Guest ID is missing."); 
+        return;
+    }
+    
+    setIsRemovingFile(true);
+    setUploadError(null);
+
+    try {
+      const functionsInstance = getFunctions();
+      const callDeletePassport = httpsCallable<
+          { guestId: string }, 
+          { success: boolean; error?: string } 
+      >(functionsInstance, 'deleteGuestPassport');
+      
+      console.log(`Calling deleteGuestPassport for guestId: ${guestIdToRemove}`);
+      // Передаем локальную переменную
+      const result = await callDeletePassport({ guestId: guestIdToRemove }); 
+
+      if (result.data.success) {
+        console.log(`Passport file removed successfully for guestId: ${guestIdToRemove}`);
+        setValue('passportPhotoUrl', undefined, { shouldDirty: true }); 
+      } else {
+        console.error("Cloud Function (deleteGuestPassport) failed:", result.data.error);
+        const errorMessage = result.data.error || t('errors.removeFileFailed', 'Failed to remove uploaded file.');
+        setUploadError(errorMessage);
+      }
+
+    } catch (error: any) {
+        console.error(`Error calling deleteGuestPassport function for ${guestIdToRemove}:`, error);
+        let message = t('errors.removeFileFunctionCallFailed', 'Error occurred while trying to remove the file.');
+        if (error.code && error.message) {
+             message = `Error (${error.code}): ${error.message}`;
+        } else if (error instanceof Error) {
+            message = error.message;
+        }
+        setUploadError(message);
+    } finally {
+        setIsRemovingFile(false);
+    }
+  };
+  // -----------------------------------------------------
+
   if (loadError) {
-    console.error("Google Maps API load error: ", loadError);
     return (
       <Container maxWidth="md" className="container-margin">
         <Alert severity="error" className="alert-margin">
@@ -249,87 +417,63 @@ const GuestForm: React.FC<GuestFormProps> = ({
   }
 
   return (
+    <FormProvider {...methods}>
     <Container component={Paper} elevation={0} className="guest-form-container">
-      <Box component="form" onSubmit={handleSubmit(handleFormSubmit)} noValidate className="guest-form-box">
+        <Box component="form" onSubmit={handleSubmit(handleFormSubmit, onInvalid)} noValidate className="guest-form-box">
         <Grid container spacing={3}>
           <Grid item xs={12} sm={6}>
-            <TextField
+              <ControlledTextField<IGuestFormShape>
+                name="firstName"
+                label={t('firstName')}
               required
-              fullWidth
-              id="firstName"
-              label={t('firstName')}
-              variant="outlined"
-              {...register("firstName", {
-                required: 'errors.required',
-                minLength: { value: 2, message: 'errors.minLength_2' }
-              })}
-              error={!!errors.firstName}
-              helperText={errors.firstName ? getErrorMessage(errors.firstName) : ''}
+                rules={{ required: 'errors.required', minLength: { value: 2, message: 'errors.minLength_2' } }}
+                textFieldProps={{ variant: "outlined", fullWidth: true }}
             />
           </Grid>
           <Grid item xs={12} sm={6}>
-            <TextField
+              <ControlledTextField<IGuestFormShape>
+                name="lastName"
+                label={t('lastName')}
               required
-              fullWidth
-              id="lastName"
-              label={t('lastName')}
-              variant="outlined"
-              {...register("lastName", {
-                required: 'errors.required',
-                minLength: { value: 2, message: 'errors.minLength_2' }
-              })}
-              error={!!errors.lastName}
-              helperText={errors.lastName ? getErrorMessage(errors.lastName) : ''}
+                rules={{ required: 'errors.required', minLength: { value: 2, message: 'errors.minLength_2' } }}
+                textFieldProps={{ variant: "outlined", fullWidth: true }}
             />
           </Grid>
           <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              id="secondLastName"
+              <ControlledTextField<IGuestFormShape>
+                name="secondLastName"
               label={t('secondLastName')}
-              variant="outlined"
-              {...register("secondLastName")}
+                textFieldProps={{ variant: "outlined", fullWidth: true }}
             />
           </Grid>
           <Grid item xs={12} sm={6}>
-            <TextField
+              <ControlledTextField<IGuestFormShape>
+                name="birthDate"
+                label={t('birthDate')}
               required
-              fullWidth
-              id="birthDate"
-              label={t('birthDate')}
-              type="date"
-              variant="outlined"
-              InputLabelProps={{ shrink: true }}
-              {...register("birthDate", {
+                rules={{
                 required: 'errors.required',
-                validate: validateMinAge
-              })}
-              error={!!errors.birthDate}
-              helperText={errors.birthDate ? getErrorMessage(errors.birthDate) : ''}
+                  validate: (value: string | unknown) => {
+                      if (typeof value !== 'string' || !value) return true; 
+                      return validateMinAge(value) || 'errors.minAge';
+                  }
+                }}
+                textFieldProps={{ variant: "outlined", fullWidth: true, type: "date", InputLabelProps: { shrink: true } }}
             />
           </Grid>
           <Grid item xs={12} sm={6}>
-            <FormControl fullWidth error={!!errors.nationality} required>
-              <InputLabel id="nationality-label">{t('nationality')}</InputLabel>
-              <Controller
+              <ControlledSelect<IGuestFormShape>
                 name="nationality"
-                control={control}
+                label={t('nationality')}
+                required
                 rules={{ required: 'errors.required' }}
-                render={({ field, fieldState }) => (
-                    <Select
-                      labelId="nationality"
-                      id="nationality"
-                      variant="outlined"
-                      {...field}
-                      disabled={loadingCountries}
-                      value={field.value || ''}
-                      error={fieldState.invalid}
-                      displayEmpty
-                      label={t('nationality')}
-                    >
-                      <MenuItem value="">
-                        <em>{loadingCountries ? t('loadingPlaceholder') : ""}</em>
-                      </MenuItem>
+                selectProps={{ 
+                  disabled: loadingCountries,
+                  variant: "outlined"
+                }}
+                emptyLabel={loadingCountries ? t('loadingPlaceholder') : <em></em>}
+                forceShrink={true}
+              >
                       {sortedCountries.preferred.map((country) => (
                         <MenuItem key={country.id} value={country.name}>
                           {country.name}
@@ -343,173 +487,105 @@ const GuestForm: React.FC<GuestFormProps> = ({
                           {country.name}
                         </MenuItem>
                       ))}
-                    </Select>
-                )}
-              />
-              {errors.nationality && <FormHelperText error>{getErrorMessage(errors.nationality)}</FormHelperText>}
-            </FormControl>
+              </ControlledSelect>
           </Grid>
           <Grid item xs={12} sm={6}>
-            <FormControl fullWidth error={!!errors.sex} required>
-              <InputLabel id="sex-label">{t('sex')}</InputLabel>
-              <Controller
+              <ControlledSelect<IGuestFormShape>
                 name="sex"
-                control={control}
+                label={t('sex')}
+                required
                 rules={{ required: 'errors.required' }}
-                render={({ field, fieldState }) => (
-                    <Select
-                      labelId="sex"
-                      id="sex"
-                      variant="outlined"
-                      {...field}
-                      value={field.value || ''}
-                      error={fieldState.invalid}
-                      displayEmpty
-                      label={t('sex')}
-                    >
-                      <MenuItem value="">
-                        <em></em>
-                      </MenuItem>
+                selectProps={{ variant: "outlined" }}
+                emptyLabel={<em></em>}
+                forceShrink={true}
+              >
                       {sexOptions.map((option) => (
                         <MenuItem key={option.value} value={option.value}>
-                          {t(option.labelKey, option.value)}
+                    {t(option.labelKey, option.value)}
                         </MenuItem>
                       ))}
-                    </Select>
-                )}
-              />
-              {errors.sex && <FormHelperText error>{getErrorMessage(errors.sex)}</FormHelperText>}
-            </FormControl>
+              </ControlledSelect>
           </Grid>
           <Grid item xs={12} sm={6}>
-            <FormControl fullWidth error={!!errors.documentType} required>
-              <InputLabel id="documentType-label">{t('documentType')}</InputLabel>
-              <Controller
+              <ControlledSelect<IGuestFormShape>
                 name="documentType"
-                control={control}
+                label={t('documentType')}
+                required
                 rules={{ required: 'errors.required' }}
-                render={({ field, fieldState }) => (
-                    <Select
-                      labelId="documentType"
-                      id="documentType"
-                      variant="outlined"
-                      {...field}
-                      value={field.value || ''}
-                      error={fieldState.invalid}
-                      displayEmpty
-                      label={t('documentType')}
-                    >
-                      <MenuItem value="">
-                        <em></em>
-                      </MenuItem>
+                selectProps={{ variant: "outlined" }}
+                emptyLabel={<em></em>}
+                forceShrink={true}
+              >
                       {documentTypeOptions.map((option) => (
                         <MenuItem key={option.value} value={option.value}>
-                          {t(option.labelKey, option.value)}
+                    {t(option.labelKey, option.value)}
                         </MenuItem>
                       ))}
-                    </Select>
-                )}
-              />
-              {errors.documentType && <FormHelperText error>{getErrorMessage(errors.documentType)}</FormHelperText>}
-            </FormControl>
+              </ControlledSelect>
           </Grid>
           <Grid item xs={12} sm={6}>
-            <TextField
+              <ControlledTextField<IGuestFormShape>
+                name="documentNumber"
+                label={t('documentNumber')}
               required
-              fullWidth
-              id="documentNumber"
-              label={t('documentNumber')}
-              variant="outlined"
-              {...register("documentNumber", {
-                required: 'errors.required',
-                minLength: { value: 5, message: 'errors.minLength_5' },
-                maxLength: { value: 20, message: 'errors.maxLength_20' }
-              })}
-              error={!!errors.documentNumber}
-              helperText={errors.documentNumber ? getErrorMessage(errors.documentNumber) : ''}
+                rules={{ required: 'errors.required', minLength: { value: 5, message: 'errors.minLength_5' }, maxLength: { value: 20, message: 'errors.maxLength_20' } }}
+                textFieldProps={{ variant: "outlined", fullWidth: true }}
             />
           </Grid>
           <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              id="documentSupNum"
+              <ControlledTextField<IGuestFormShape>
+                name="documentSupNum"
               label={t('documentSupNum')}
-              variant="outlined"
-              {...register("documentSupNum")}
+                textFieldProps={{ variant: "outlined", fullWidth: true }}
             />
           </Grid>
           <Grid item xs={12} sm={6}>
-            <Controller
-              name="phone"
-              control={control}
-              rules={{
-                required: 'errors.required',
-                validate: (value) => {
-                  const isValid = matchIsValidTel(value || '');
-                  console.log(`Phone validation: value='${value}', isValid=${isValid}`);
-                  return isValid || 'errors.validatePhone';
-                }
-              }}
-              render={({ field, fieldState }) => {
-                console.log('Phone fieldState:', fieldState);
-                return (
-                  <MuiTelInput
-                    {...field}
-                    label={t('phone')}
-                    defaultCountry="ES"
-                    preferredCountries={preferredPhoneCountries as any}
-                    variant="outlined"
-                    fullWidth
-                    required
-                    error={fieldState.invalid}
-                    helperText={fieldState.error ? getErrorMessage(fieldState.error) : ''}
-                    onChange={handlePhoneChange}
-                  />
-                );
-              }}
-            />
+              <ControlledMuiTelInput<IGuestFormShape>
+                name="phone"
+                label={t('phone')}
+                required
+                rules={{
+                  required: 'errors.required',
+                  validate: (value: string | unknown) => {
+                    if (typeof value !== 'string') {
+                       return value ? 'errors.validatePhone' : true;
+                    }
+                    const isValid = matchIsValidTel(value);
+                    return isValid || 'errors.validatePhone';
+                  }
+                }}
+                muiTelInputProps={{ 
+                  defaultCountry: "ES",
+                  preferredCountries: preferredPhoneCountries as any
+                }}
+                onInfoChange={setPhoneInfo}
+              />
           </Grid>
           <Grid item xs={12} sm={6}>
-            <TextField
+              <ControlledTextField<IGuestFormShape>
+                name="email"
+                label={t('email')}
               required
-              fullWidth
-              id="email"
-              label={t('email')}
-              type="email"
-              variant="outlined"
-              {...register("email", {
+                rules={{
                 required: 'errors.required',
-                pattern: {
-                  value: /^\S+@\S+\.\S+$/,
-                  message: 'errors.patternEmail'
-                }
-              })}
-              error={!!errors.email}
-              helperText={errors.email ? getErrorMessage(errors.email) : ''}
+                  pattern: { value: /^\S+@\S+\.\S+$/, message: 'errors.patternEmail' }
+                }}
+                textFieldProps={{ variant: "outlined", fullWidth: true, type: 'email' }}
             />
           </Grid>
           <Grid item xs={12} sm={6}>
-            <FormControl fullWidth error={!!errors.countryResidence} required>
-              <InputLabel id="countryResidence-label">{t('countryResidence')}</InputLabel>
-              <Controller
+              <ControlledSelect<IGuestFormShape>
                 name="countryResidence"
-                control={control}
+                label={t('countryResidence')}
+                required
                 rules={{ required: 'errors.required' }}
-                render={({ field, fieldState }) => (
-                    <Select
-                      labelId="countryResidence"
-                      id="countryResidence"
-                      variant="outlined"
-                      {...field}
-                      value={field.value || ''}
-                      error={fieldState.invalid}
-                      displayEmpty
-                      disabled={loadingCountries}
-                      label={t('countryResidence')}
-                    >
-                      <MenuItem value="">
-                        <em>{loadingCountries ? t('loadingPlaceholder') : ""}</em>
-                      </MenuItem>
+                selectProps={{ 
+                  disabled: loadingCountries,
+                  variant: "outlined"
+                }}
+                emptyLabel={loadingCountries ? t('loadingPlaceholder') : <em></em>}
+                forceShrink={true}
+              >
                       {sortedCountries.preferred.map((country) => (
                         <MenuItem key={country.id} value={country.name}>
                           {country.name}
@@ -523,130 +599,201 @@ const GuestForm: React.FC<GuestFormProps> = ({
                           {country.name}
                         </MenuItem>
                       ))}
-                    </Select>
-                )}
-              />
-              {errors.countryResidence && <FormHelperText error>{getErrorMessage(errors.countryResidence)}</FormHelperText>}
-            </FormControl>
+              </ControlledSelect>
           </Grid>
           <Grid item xs={12}>
             {isLoaded ? (
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={8}>
-                  <Autocomplete
-                    onLoad={handleAutocompleteLoad}
-                    onPlaceChanged={handlePlaceChanged}
-                    options={{ types: ['address'] }}
-                  >
-                    <TextField
-                      required
-                      fullWidth
-                      id="residenceAddress"
-                      label={t('homeAddress')}
-                      variant="outlined"
-                      {...register("residenceAddress", { required: 'errors.required' })}
+              <Autocomplete
+                onLoad={handleAutocompleteLoad}
+                onPlaceChanged={handlePlaceChanged}
+                options={{ types: ['address'] }}
+              >
+                <TextField
+                  required
+                  fullWidth
+                  id="residenceAddress"
+                  label={t('homeAddress')}
+                  variant="outlined"
+                        margin="dense"
+                  {...register("residenceAddress", { required: 'errors.required' })}
                       error={!!errors.residenceAddress}
-                      helperText={errors.residenceAddress ? getErrorMessage(errors.residenceAddress) : ''}
+                        helperText={errors.residenceAddress ? getErrorMessage(errors.residenceAddress, { required: 'errors.required' }, t) : ''}
                       placeholder={t('placeholders.streetAddressOnly', 'Enter street address and number')}
-                    />
-                  </Autocomplete>
+                />
+              </Autocomplete>
                 </Grid>
                 <Grid item xs={12} sm={4}>
-                  <TextField
-                    fullWidth
-                    id="apartmentNumber"
-                    label={t('formLabels.apartmentNumberOptional')}
-                    variant="outlined"
-                    {...register("apartmentNumber")}
-                    error={!!errors.apartmentNumber}
-                    helperText={errors.apartmentNumber ? getErrorMessage(errors.apartmentNumber) : ''}
+                    <ControlledTextField<IGuestFormShape>
+                      name="apartmentNumber"
+                      label={t('formLabels.apartmentNumberOptional')}
+                      textFieldProps={{ variant: "outlined", fullWidth: true }}
                   />
                 </Grid>
               </Grid>
             ) : (
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={8}>
-                  <TextField
-                    required
-                    fullWidth
-                    id="residenceAddress"
-                    label={t('homeAddress')}
-                    variant="outlined"
-                    disabled={true}
-                    {...register("residenceAddress", { required: 'errors.required' })}
-                    error={!!errors.residenceAddress}
-                    helperText={errors.residenceAddress ? getErrorMessage(errors.residenceAddress) : ''}
+                    <ControlledTextField<IGuestFormShape>
+                      name="residenceAddress"
+                      label={t('homeAddress')}
+                required
+                      rules={{ required: 'errors.required' }}
+                      textFieldProps={{ variant: "outlined", fullWidth: true, disabled: true }}
                   />
                 </Grid>
                 <Grid item xs={12} sm={4}>
-                  <TextField
-                    fullWidth
-                    id="apartmentNumber"
-                    label={t('formLabels.apartmentNumberOptional')}
-                    variant="outlined"
-                    disabled={true}
-                    {...register("apartmentNumber")}
+                    <ControlledTextField<IGuestFormShape>
+                      name="apartmentNumber"
+                      label={t('formLabels.apartmentNumberOptional')}
+                      textFieldProps={{ variant: "outlined", fullWidth: true, disabled: true }}
                   />
                 </Grid>
               </Grid>
             )}
           </Grid>
           <Grid item xs={12} sm={6}>
-            <TextField
-              key={`city-${cityKey}`}
+              <ControlledTextField<IGuestFormShape>
+                name="city"
+                label={t('city')}
               required
-              fullWidth
-              id="city"
-              label={t('city')}
-              variant="outlined"
-              {...register("city", { required: 'errors.required' })}
-              error={!!errors.city}
-              helperText={errors.city ? getErrorMessage(errors.city) : ''}
+                rules={{ required: 'errors.required' }}
+                textFieldProps={{ variant: "outlined", fullWidth: true, key: `city-${cityKey}` }}
             />
           </Grid>
           <Grid item xs={12} sm={6}>
-            <TextField
-              key={`postcode-${postcodeKey}`}
+              <ControlledTextField<IGuestFormShape>
+                name="postcode"
+                label={t('postcode')}
               required
-              fullWidth
-              id="postcode"
-              label={t('postcode')}
-              variant="outlined"
-              {...register("postcode", { required: 'errors.required' })}
-              error={!!errors.postcode}
-              helperText={errors.postcode ? getErrorMessage(errors.postcode) : ''}
+                rules={{ required: 'errors.required' }}
+                textFieldProps={{ variant: "outlined", fullWidth: true, key: `postcode-${postcodeKey}` }}
             />
           </Grid>
           <Grid item xs={12} sm={6}>
-            <TextField
+              <ControlledTextField<IGuestFormShape>
+                name="visitDate"
+                label={t('visitDate')}
               required
-              fullWidth
-              id="visitDate"
-              label={t('visitDate')}
-              type="date"
-              variant="outlined"
-              InputLabelProps={{ shrink: true }}
-              {...register("visitDate", {
+                rules={{
                 required: 'errors.required',
-                validate: validateVisitDate
-              })}
-              error={!!errors.visitDate}
-              helperText={errors.visitDate ? getErrorMessage(errors.visitDate) : ''}
+                  validate: (value: string | unknown) => {
+                      if (typeof value !== 'string' || !value) return true;
+                      return validateVisitDate(value) || 'errors.futureDateRequired';
+                  }
+                }}
+                textFieldProps={{ variant: "outlined", fullWidth: true, type: 'date', InputLabelProps: { shrink: true } }}
             />
           </Grid>
+          <Grid item xs={12}>
+                <Typography variant="subtitle1" gutterBottom sx={{ mb: 1 }}>
+                    {t('passportPhoto', 'Passport Photo/Scan')}
+                </Typography>
+                
+                {/* --- БЛОК ЗАГРУЗКИ С REACT-DROPZONE --- */}
+                <div {...getRootProps({
+                    style: {
+                        flex: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '20px',
+                        borderWidth: 2,
+                        borderRadius: 4,
+                        borderColor: isDragReject ? '#ff1744' : (isDragAccept ? '#00e676' : (isFocused ? '#2196f3' : '#eeeeee')),
+                        borderStyle: 'dashed',
+                        backgroundColor: isDragReject ? '#ffebee' : (isDragAccept ? '#e8f5e9' : '#fafafa'),
+                        color: '#bdbdbd',
+                        outline: 'none',
+                        transition: 'border .24s ease-in-out',
+                        minHeight: '100px',
+                        cursor: 'pointer'
+                    }
+                 })} >
+                    <input {...getInputProps()} />
+                    <CloudUploadIcon sx={{ fontSize: 40, mb: 1, color: isDragActive ? 'primary.main' : 'inherit' }} />
+                    {isDragActive ? (
+                        isDragReject ? 
+                        <Typography>{t('dropzone.reject', 'File type not accepted')}</Typography> : 
+                        <Typography>{t('dropzone.active', 'Drop the file here ...')}</Typography>
+                    ) : (
+                        <Typography>{t('dropzone.prompt', "Drag 'n' drop file here, or click to select file")}</Typography>
+                    )}
+                    <Typography variant="caption" sx={{ mt: 0.5 }}>
+                        {t('dropzone.hint', 'PDF, JPG, PNG up to 5MB')}
+                    </Typography>
+                </div>
+                {/* --------------------------------------------- */}
+
+                {/* Отображение выбранного файла (остается как было) */} 
+                {selectedFile && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                        <AttachFileIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                        <Typography variant="body2" sx={{ mr: 1 }}>
+                            {selectedFile.name}
+                        </Typography>
+                        <IconButton onClick={handleClearFile} size="small" disabled={isUploading} title={t('clearSelection', 'Clear selection') ?? 'Clear selection'}>
+                            <ClearIcon fontSize="small" />
+                        </IconButton>
+                    </Box>
+                )}
+
+                {/* Отображение уже загруженного URL + КНОПКА УДАЛЕНИЯ */} 
+                {!selectedFile && currentPassportPhotoUrl && (
+                     <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}> 
+                         <Link href={currentPassportPhotoUrl} target="_blank" rel="noopener noreferrer" variant="body2">
+                              {t('viewUploadedPassport', 'View Uploaded Document')}
+                         </Link>
+                         <IconButton 
+                            size="small" 
+                            onClick={handleRemoveExistingFile} 
+                            disabled={isUploading || isRemovingFile} 
+                            title={t('removeUploadedFile', 'Remove uploaded file') ?? 'Remove uploaded file'}
+                            color="error"
+                            sx={{ ml: 1 }}
+                         >
+                             {isRemovingFile ? <CircularProgress size={16} color="inherit" /> : <DeleteOutlineIcon fontSize="small" />}
+                         </IconButton>
+                     </Box>
+                )}
+
+                {/* Индикатор загрузки (остается как было) */} 
+                {isUploading && (
+                    <Box sx={{ width: '100%', mt: 1 }}>
+                        <LinearProgress variant="indeterminate" /> 
+                    </Box>
+                )}
+                {/* Ошибка загрузки/удаления файла */} 
+                {uploadError && (
+                    <Alert severity="error" sx={{ mt: 1 }}>{uploadError}</Alert>
+                )}
+            </Grid>
         </Grid>
         <Box className="guest-form-submit-box">
             <Button
               type="submit"
               variant="contained"
-              disabled={isSubmitting || loadingCountries || !isDirty || !isValid}
-              className="guest-form-submit-button"
-            >
-              {isSubmitting ? <CircularProgress size={24} /> : (isEditMode ? t('updateButton') : t('submitButton'))}
+              disabled={
+                !isValid || // Форма не валидна
+                isUploading || // Идет загрузка файла
+                isRemovingFile || // Идет удаление файла
+                isSubmitting || // Идет сохранение формы (через пропс или внутреннее)
+                loadingCountries || // Идет загрузка стран
+                (isEditMode ? !(isDirty || selectedFile) : !isDirty) // Логика изменения
+              }
+            className="guest-form-submit-button"
+          >
+              {/* Обновляем текст для isUploading */} 
+              {isUploading ? 
+                t('uploading','Uploading') + '...' : 
+                (isSubmitting ? <CircularProgress size={24} /> : (isEditMode ? t('updateButton') : t('submitButton')))}
             </Button>
         </Box>
       </Box>
     </Container>
+    </FormProvider>
   );
 };
 

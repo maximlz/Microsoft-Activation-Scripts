@@ -44,7 +44,8 @@ export const guestConverter: FirestoreDataConverter<IGuestFormDataWithId> = {
             countryCode: data.countryCode,
             bookingConfirmationCode: data.bookingConfirmationCode,
             timestamp: data.timestamp as Timestamp, // Явно указываем тип для timestamp
-            bookingId: data.bookingId
+            bookingId: data.bookingId,
+            passportPhotoUrl: data.passportPhotoUrl
         } as IGuestFormDataWithId;
     }
 }; 

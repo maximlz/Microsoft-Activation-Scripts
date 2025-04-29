@@ -352,8 +352,8 @@ const CountriesManager: React.FC = () => {
                     }}
                     autoHeight={false}
                     disableRowSelectionOnClick
-                />
-            </Paper>
+            />
+        </Paper>
         </Box>
     );
 };

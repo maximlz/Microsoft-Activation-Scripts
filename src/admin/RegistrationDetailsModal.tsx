@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, CircularProgress, Alert, Grid, TextField, Select, MenuItem, FormControl, InputLabel, FormHelperText } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, CircularProgress, Alert, Grid, TextField, MenuItem } from '@mui/material';
 import { doc, getDoc, Timestamp, collection, query, orderBy, getDocs } from 'firebase/firestore';
-import { useForm, SubmitHandler, Controller } from 'react-hook-form';
-import { MuiTelInput, matchIsValidTel, MuiTelInputInfo } from 'mui-tel-input';
+import { useForm, SubmitHandler, FormProvider } from 'react-hook-form';
+import { MuiTelInputInfo, matchIsValidTel } from 'mui-tel-input';
 import { db } from '../config/firebaseConfig';
 import { guestConverter } from '../config/firebaseConverters';
 import { formatDateDDMMYYYY } from '../utils/formatters';
@@ -10,14 +10,17 @@ import { IGuestFormData, Country } from '../types/guestTypes';
 import { useTranslation } from 'react-i18next';
 import { validateMinAge, validateVisitDate } from '../utils/validators';
 import { sexOptions, documentTypeOptions } from '../constants/formOptions';
+import ControlledTextField from '../components/ControlledTextField';
+import ControlledSelect from '../components/ControlledSelect';
+import ControlledMuiTelInput from '../components/ControlledMuiTelInput';
 
 // Добавляем определение интерфейса
 interface RegistrationDetailsModalProps {
-  open: boolean;
-  onClose: () => void;
-  registrationId: string | null; 
-  isEditMode: boolean;
-  onSave: (id: string, data: IGuestFormData) => Promise<void>; 
+    open: boolean;
+    onClose: () => void;
+    registrationId: string | null;
+    isEditMode: boolean;
+    onSave: (id: string, data: IGuestFormData) => Promise<void>;
 }
 
 // Модифицируем renderReadOnlyField для объединения адреса и квартиры
@@ -50,13 +53,8 @@ function RegistrationDetailsModal({ open, onClose, registrationId, isEditMode, o
     const [loadingCountries, setLoadingCountries] = useState<boolean>(false);
     const [phoneInfo, setPhoneInfo] = useState<MuiTelInputInfo | null>(null);
 
-    const {
-        control,
-        handleSubmit,
-        reset,
-        setValue,
-        formState: { errors, isDirty }
-    } = useForm<IGuestFormData>({ mode: 'onChange' });
+    const methods = useForm<IGuestFormData>({ mode: 'onChange' });
+    const { handleSubmit, reset, formState: { isDirty } } = methods;
 
     useEffect(() => {
         const fetchCountries = async () => {
@@ -67,7 +65,7 @@ function RegistrationDetailsModal({ open, onClose, registrationId, isEditMode, o
                 const countrySnapshot = await getDocs(q);
                 const countryList = countrySnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name as string, code: doc.data().code as string }));
                 setCountries(countryList);
-            } catch (err) {
+            } catch (err: unknown) {
                 console.error("Error fetching countries:", err);
             } finally {
                 setLoadingCountries(false);
@@ -92,14 +90,13 @@ function RegistrationDetailsModal({ open, onClose, registrationId, isEditMode, o
                     const data = docSnap.data() as IGuestFormData;
                     setRegistrationData(data);
                     reset(data);
-                    if (data.phone) {
-                    }
                 } else {
                     setError(t('registrationDetails.errorNotFound', 'Registration not found.'));
                 }
-            } catch (err: any) {
+            } catch (err: unknown) {
                 console.error("Error fetching registration details: ", err);
-                setError(t('registrationDetails.errorLoading', 'Error loading details: ') + err.message);
+                const message = err instanceof Error ? err.message : 'Unknown error fetching details';
+                setError(t('registrationDetails.errorLoading', 'Error loading details: ') + message);
             } finally {
                 setLoading(false);
             }
@@ -126,23 +123,13 @@ function RegistrationDetailsModal({ open, onClose, registrationId, isEditMode, o
                 countryCode: phoneInfo?.countryCode || ''
             }
             await onSave(registrationId, dataToSave);
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Error saving registration: ", err);
-            setError(t('registrationDetails.errorSaving', 'Error saving changes: ') + err.message);
+            const message = err instanceof Error ? err.message : 'Unknown error saving changes';
+            setError(t('registrationDetails.errorSaving', 'Error saving changes: ') + message);
         } finally {
             setIsSaving(false);
         }
-    };
-
-    const getErrorMessage = (fieldError: any): string => {
-        if (!fieldError) return '';
-        const message = fieldError.message || 'errors.invalidInput';
-        return t(message, { field: fieldError.ref?.name || 'field' });
-    };
-
-    const handlePhoneChange = (newValue: string, info: MuiTelInputInfo) => {
-        setValue('phone', newValue, { shouldValidate: true, shouldTouch: true, shouldDirty: true });
-        setPhoneInfo(info);
     };
 
     // Helper для форматирования полного адреса в режиме просмотра
@@ -158,440 +145,269 @@ function RegistrationDetailsModal({ open, onClose, registrationId, isEditMode, o
     return (
         <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
             <DialogTitle>{isEditMode ? t('registrationDetails.editTitle', 'Edit Registration') : t('registrationDetails.viewTitle', 'View Registration Details')}</DialogTitle>
-            <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate autoComplete="off">
-                <DialogContent dividers>
-                    {loading && <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}><CircularProgress /></Box>}
-                    {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-                    {(registrationData || isEditMode) && (
+            <FormProvider {...methods}>
+                <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate autoComplete="off">
+            <DialogContent dividers>
+                {loading && <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}><CircularProgress /></Box>}
+                {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+                        {(registrationData || isEditMode) && (
                         <Grid container spacing={2}>
                             {isEditMode ? (
                                 <>
                                     <Grid item xs={12} sm={6}>
-                                        <Controller
+                                            <ControlledTextField<IGuestFormData>
                                             name="firstName"
-                                            control={control}
-                                            rules={{ required: t('validation.required', 'This field is required') }}
-                                            render={({ field }) => (
-                                                <TextField
-                                                    {...field}
                                                     label={t('formLabels.firstName', 'First Name')}
-                                                    variant="outlined"
-                                                    fullWidth
-                                                    margin="dense"
                                                     required
-                                                    InputLabelProps={{ shrink: true }}
-                                                    error={!!errors.firstName}
-                                                    helperText={errors.firstName ? getErrorMessage(errors.firstName) : ''}
-                                                />
-                                            )}
-                                        />
-                                    </Grid>
-                                    <Grid item xs={12} sm={6}>
-                                        <Controller
-                                            name="lastName"
-                                            control={control}
-                                            rules={{ required: t('validation.required', 'This field is required') }}
-                                            render={({ field }) => (
-                                                <TextField
-                                                    {...field}
-                                                    label={t('formLabels.lastName', 'Last Name')}
-                                                    variant="outlined"
-                                                    fullWidth
-                                                    margin="dense"
-                                                    required
-                                                    InputLabelProps={{ shrink: true }}
-                                                    error={!!errors.lastName}
-                                                    helperText={errors.lastName ? getErrorMessage(errors.lastName) : ''}
-                                                />
-                                            )}
-                                        />
-                                    </Grid>
-                                    <Grid item xs={12} sm={6}>
-                                        <Controller
-                                            name="email"
-                                            control={control}
-                                            rules={{
-                                                required: t('validation.required', 'This field is required'),
-                                                pattern: {
-                                                    value: /^\S+@\S+\.\S+$/,
-                                                    message: t('validation.email', 'Invalid email format')
-                                                }
-                                            }}
-                                            render={({ field }) => (
-                                                <TextField
-                                                    {...field}
-                                                    label={t('formLabels.email', 'Email')}
-                                                    variant="outlined"
-                                                    fullWidth
-                                                    margin="dense"
-                                                    required
-                                                    InputLabelProps={{ shrink: true }}
-                                                    error={!!errors.email}
-                                                    helperText={errors.email ? getErrorMessage(errors.email) : ''}
-                                                />
-                                            )}
-                                        />
-                                    </Grid>
-                                    <Grid item xs={12} sm={6}>
-                                        <Controller
-                                            name="secondLastName"
-                                            control={control}
-                                            render={({ field }) => (
-                                                <TextField
-                                                    {...field}
-                                                    label={t('formLabels.secondLastName', 'Second Last Name')}
-                                                    variant="outlined"
-                                                    fullWidth
-                                                    margin="dense"
-                                                    InputLabelProps={{ shrink: true }}
-                                                    error={!!errors.secondLastName}
-                                                    helperText={errors.secondLastName ? getErrorMessage(errors.secondLastName) : ''}
-                                                />
-                                            )}
-                                        />
-                                    </Grid>
-                                    <Grid item xs={12} sm={6}>
-                                        <Controller
-                                            name="birthDate"
-                                            control={control}
-                                            rules={{
-                                                required: t('validation.required', 'This field is required'),
-                                                validate: validateMinAge
-                                            }}
-                                            render={({ field }) => (
-                                                <TextField
-                                                    {...field}
-                                                    label={t('formLabels.birthDate', 'Birth Date')}
-                                                    type="date"
-                                                    InputLabelProps={{ shrink: true }}
-                                                    variant="outlined"
-                                                    fullWidth
-                                                    margin="dense"
-                                                    required
-                                                    error={!!errors.birthDate}
-                                                    helperText={errors.birthDate ? getErrorMessage(errors.birthDate) : ''}
-                                                />
-                                            )}
-                                        />
-                                    </Grid>
-                                    <Grid item xs={12} sm={6}>
-                                        <FormControl fullWidth margin="dense" error={!!errors.nationality} required>
-                                            <InputLabel id="nationality-label">{t('formLabels.nationality', 'Nationality')}</InputLabel>
-                                            <Controller
-                                                name="nationality"
-                                                control={control}
                                                 rules={{ required: t('validation.required', 'This field is required') }}
-                                                render={({ field }) => {
-                                                    return (
-                                                        <Select
-                                                            {...field}
-                                                            value={field.value ?? ''} 
-                                                            labelId="nationality-label" 
-                                                            label={t('formLabels.nationality', 'Nationality')}
-                                                            disabled={loadingCountries}
-                                                            displayEmpty
-                                                        >
-                                                            <MenuItem value="" disabled><em>{loadingCountries ? t('loading') : t('selectPlaceholder')}</em></MenuItem> 
-                                                            {countries.map((country) => (
-                                                                <MenuItem key={country.id} value={country.name}>
-                                                                    {country.name}
-                                                                </MenuItem>
-                                                            ))}
-                                                        </Select>
-                                                    );
+                                                textFieldProps={{ 
+                                                    variant: "outlined", 
+                                                    fullWidth: true, 
+                                                    margin: "dense" 
+                                                }}
+                                        />
+                                    </Grid>
+                                    <Grid item xs={12} sm={6}>
+                                            <ControlledTextField<IGuestFormData>
+                                            name="lastName"
+                                                label={t('formLabels.lastName', 'Last Name')}
+                                                required
+                                            rules={{ required: t('validation.required', 'This field is required') }}
+                                                textFieldProps={{ variant: "outlined", fullWidth: true, margin: "dense" }}
+                                            />
+                                        </Grid>
+                                        <Grid item xs={12} sm={6}>
+                                            <ControlledTextField<IGuestFormData>
+                                                name="email"
+                                                label={t('formLabels.email', 'Email')}
+                                                    required
+                                                rules={{
+                                                    required: t('validation.required', 'This field is required'),
+                                                    pattern: { value: /^\S+@\S+\.\S+$/, message: t('validation.email', 'Invalid email format') }
+                                                }}
+                                                textFieldProps={{ variant: "outlined", fullWidth: true, margin: "dense", type: 'email' }}
+                                            />
+                                        </Grid>
+                                        <Grid item xs={12} sm={6}>
+                                            <ControlledTextField<IGuestFormData>
+                                                name="secondLastName"
+                                                label={t('formLabels.secondLastName', 'Second Last Name')}
+                                                textFieldProps={{ variant: "outlined", fullWidth: true, margin: "dense" }}
+                                        />
+                                    </Grid>
+                                     <Grid item xs={12} sm={6}>
+                                            <ControlledTextField<IGuestFormData>
+                                                name="birthDate"
+                                                label={t('formLabels.birthDate', 'Birth Date')}
+                                                required
+                                            rules={{
+                                                required: t('validation.required', 'This field is required'),
+                                                    validate: (value) => {
+                                                        if (typeof value !== 'string' || !value) return true;
+                                                        return validateMinAge(value) || t('validation.minAge');
+                                                    } 
+                                                }}
+                                                textFieldProps={{ 
+                                                    variant: "outlined", 
+                                                    fullWidth: true, 
+                                                    margin: "dense", 
+                                                    type: 'date',
+                                                    InputLabelProps: { shrink: true } 
                                                 }}
                                             />
-                                            {errors.nationality && <FormHelperText>{getErrorMessage(errors.nationality)}</FormHelperText>}
-                                        </FormControl>
-                                    </Grid>
-                                    <Grid item xs={12} sm={6}>
-                                        <FormControl fullWidth margin="dense" error={!!errors.sex} required>
-                                            <InputLabel id="sex-label">{t('formLabels.sex', 'Sex')}</InputLabel>
-                                            <Controller
+                                        </Grid>
+                                        <Grid item xs={12} sm={6}>
+                                            <ControlledSelect<IGuestFormData>
+                                                name="nationality"
+                                                label={t('formLabels.nationality', 'Nationality')}
+                                                required
+                                                rules={{ required: t('validation.required') }}
+                                                selectProps={{ 
+                                                    disabled: loadingCountries, 
+                                                    variant: "outlined"
+                                                }}
+                                                emptyLabel={loadingCountries ? t('loading') : t('selectPlaceholder')}
+                                            >
+                                                {countries.map((country) => <MenuItem key={country.id} value={country.name}>{country.name}</MenuItem>)} 
+                                            </ControlledSelect>
+                                        </Grid>
+                                        <Grid item xs={12} sm={6}>
+                                            <ControlledSelect<IGuestFormData>
                                                 name="sex"
-                                                control={control}
-                                                rules={{ required: t('validation.required', 'This field is required') }}
-                                                render={({ field }) => (
-                                                    <Select
-                                                        {...field}
-                                                        value={field.value ?? ''} 
-                                                        labelId="sex-label"
-                                                        label={t('formLabels.sex', 'Sex')}
-                                                        displayEmpty
-                                                    >
-                                                        <MenuItem value="" disabled><em>{t('selectPlaceholder')}</em></MenuItem>
-                                                        {sexOptions.map((option) => (
-                                                            <MenuItem key={option.value} value={option.value}>
-                                                                {t(option.labelKey, option.value)}
-                                                            </MenuItem>
-                                                        ))}
-                                                    </Select>
-                                                )}
-                                            />
-                                            {errors.sex && <FormHelperText>{getErrorMessage(errors.sex)}</FormHelperText>}
-                                        </FormControl>
-                                    </Grid>
-                                    <Grid item xs={12} sm={6}>
-                                        <FormControl fullWidth margin="dense" error={!!errors.documentType} required>
-                                            <InputLabel id="documentType-label">{t('formLabels.documentType', 'Document Type')}</InputLabel>
-                                            <Controller
+                                                label={t('formLabels.sex', 'Sex')}
+                                                required
+                                                rules={{ required: t('validation.required') }}
+                                                selectProps={{ variant: "outlined" }}
+                                                emptyLabel={t('selectPlaceholder')}
+                                            >
+                                                 {sexOptions.map((option) => <MenuItem key={option.value} value={option.value}>{t(option.labelKey, option.value)}</MenuItem>)} 
+                                            </ControlledSelect>
+                                        </Grid>
+                                        <Grid item xs={12} sm={6}>
+                                            <ControlledSelect<IGuestFormData>
                                                 name="documentType"
-                                                control={control}
+                                                label={t('formLabels.documentType', 'Document Type')}
+                                                required
+                                                rules={{ required: t('validation.required') }}
+                                                selectProps={{ variant: "outlined" }}
+                                                emptyLabel={t('selectPlaceholder')}
+                                            >
+                                                {documentTypeOptions.map((option) => <MenuItem key={option.value} value={option.value}>{t(option.labelKey, option.value)}</MenuItem>)} 
+                                            </ControlledSelect>
+                                        </Grid>
+                                        <Grid item xs={12} sm={6}>
+                                             <ControlledTextField<IGuestFormData>
+                                                name="documentNumber"
+                                                label={t('formLabels.documentNumber', 'Document Number')}
+                                                required
                                                 rules={{ required: t('validation.required', 'This field is required') }}
-                                                render={({ field }) => (
-                                                    <Select
-                                                        {...field}
-                                                        value={field.value ?? ''} 
-                                                        labelId="documentType-label"
-                                                        label={t('formLabels.documentType', 'Document Type')}
-                                                        displayEmpty
-                                                    >
-                                                        <MenuItem value="" disabled><em>{t('selectPlaceholder')}</em></MenuItem>
-                                                        {documentTypeOptions.map((option) => (
-                                                            <MenuItem key={option.value} value={option.value}>
-                                                                {t(option.labelKey, option.value)}
-                                                            </MenuItem>
-                                                        ))}
-                                                    </Select>
-                                                )}
+                                                textFieldProps={{ variant: "outlined", fullWidth: true, margin: "dense" }}
                                             />
-                                            {errors.documentType && <FormHelperText>{getErrorMessage(errors.documentType)}</FormHelperText>}
-                                        </FormControl>
-                                    </Grid>
-                                    <Grid item xs={12} sm={6}>
-                                        <Controller
-                                            name="documentNumber"
-                                            control={control}
-                                            rules={{ required: t('validation.required', 'This field is required') }}
-                                            render={({ field }) => (
-                                                <TextField
-                                                    {...field}
-                                                    label={t('formLabels.documentNumber', 'Document Number')}
-                                                    variant="outlined"
-                                                    fullWidth
-                                                    margin="dense"
-                                                    required
-                                                    InputLabelProps={{ shrink: true }}
-                                                    error={!!errors.documentNumber}
-                                                    helperText={errors.documentNumber ? getErrorMessage(errors.documentNumber) : ''}
-                                                />
-                                            )}
-                                        />
-                                    </Grid>
-                                    <Grid item xs={12} sm={6}>
-                                        <Controller
-                                            name="documentSupNum"
-                                            control={control}
-                                            render={({ field }) => (
-                                                <TextField
-                                                    {...field}
-                                                    label={t('formLabels.documentSupNum', 'Support Number')}
-                                                    variant="outlined"
-                                                    fullWidth
-                                                    margin="dense"
-                                                    InputLabelProps={{ shrink: true }}
-                                                    error={!!errors.documentSupNum}
-                                                    helperText={errors.documentSupNum ? getErrorMessage(errors.documentSupNum) : ''}
-                                                />
-                                            )}
-                                        />
-                                    </Grid>
-                                    <Grid item xs={12} sm={6}>
-                                        <Controller
-                                            name="phone"
-                                            control={control}
-                                            rules={{
-                                                required: t('validation.required', 'This field is required'),
-                                                validate: (value) => matchIsValidTel(value || '') || t('validation.phone', 'Invalid phone number')
-                                            }}
-                                            render={({ field, fieldState }) => (
-                                                <MuiTelInput
-                                                    {...field}
-                                                    label={t('formLabels.phone', 'Phone')}
-                                                    defaultCountry="ES"
-                                                    onChange={handlePhoneChange}
-                                                    fullWidth
-                                                    required
-                                                    error={fieldState.invalid}
-                                                    helperText={fieldState.error ? getErrorMessage(fieldState.error) : ''}
-                                                    variant="outlined"
-                                                    margin="dense"
-                                                />
-                                            )}
-                                        />
-                                    </Grid>
-                                    <Grid item xs={12} sm={6}>
-                                        <FormControl fullWidth margin="dense" error={!!errors.countryResidence} required>
-                                            <InputLabel id="countryResidence-label">{t('formLabels.countryResidence', 'Country of Residence')}</InputLabel>
-                                            <Controller
+                                        </Grid>
+                                        <Grid item xs={12} sm={6}>
+                                             <ControlledTextField<IGuestFormData>
+                                                name="documentSupNum"
+                                                label={t('formLabels.documentSupNum', 'Support Number')}
+                                                textFieldProps={{ variant: "outlined", fullWidth: true, margin: "dense" }}
+                                            />
+                                        </Grid>
+                                        <Grid item xs={12} sm={6}>
+                                            <ControlledMuiTelInput<IGuestFormData>
+                                                name="phone"
+                                                label={t('formLabels.phone', 'Phone')}
+                                                required
+                                                rules={{ 
+                                                    required: t('validation.required'), 
+                                                    validate: (value: string | unknown) => {
+                                                        if (typeof value !== 'string') {
+                                                            return value ? t('validation.phone') : true;
+                                                        }
+                                                        return matchIsValidTel(value) || t('validation.phone');
+                                                    } 
+                                                }}
+                                                muiTelInputProps={{
+                                                    defaultCountry: "ES" 
+                                                }}
+                                                onInfoChange={setPhoneInfo}
+                                            />
+                                        </Grid>
+                                        <Grid item xs={12} sm={6}>
+                                             <ControlledSelect<IGuestFormData>
                                                 name="countryResidence"
-                                                control={control}
+                                                label={t('formLabels.countryResidence', 'Country of Residence')}
+                                                required
+                                                rules={{ required: t('validation.required') }}
+                                                selectProps={{ 
+                                                    disabled: loadingCountries, 
+                                                    variant: "outlined"
+                                                }}
+                                                emptyLabel={loadingCountries ? t('loading') : t('selectPlaceholder')}
+                                            >
+                                                {countries.map((country) => <MenuItem key={country.id} value={country.name}>{country.name}</MenuItem>)} 
+                                             </ControlledSelect>
+                                        </Grid>
+                                        <Grid item xs={12} sm={6}>
+                                             <ControlledTextField<IGuestFormData>
+                                                name="residenceAddress"
+                                                label={t('formLabels.residenceAddress', 'Address')}
+                                                required
                                                 rules={{ required: t('validation.required', 'This field is required') }}
-                                                render={({ field }) => (
-                                                    <Select
-                                                        {...field}
-                                                        value={field.value ?? ''} 
-                                                        labelId="countryResidence-label"
-                                                        label={t('formLabels.countryResidence', 'Country of Residence')}
-                                                        disabled={loadingCountries}
-                                                        displayEmpty
-                                                    >
-                                                        <MenuItem value="" disabled><em>{loadingCountries ? t('loading') : t('selectPlaceholder')}</em></MenuItem>
-                                                        {countries.map((country) => (
-                                                            <MenuItem key={country.id} value={country.name}>
-                                                                {country.name}
-                                                            </MenuItem>
-                                                        ))}
-                                                    </Select>
-                                                )}
+                                                textFieldProps={{ variant: "outlined", fullWidth: true, margin: "dense" }}
                                             />
-                                            {errors.countryResidence && <FormHelperText>{getErrorMessage(errors.countryResidence)}</FormHelperText>}
-                                        </FormControl>
-                                    </Grid>
-                                    <Grid item xs={12} sm={6}>
-                                        <Controller
-                                            name="residenceAddress"
-                                            control={control}
-                                            rules={{ required: t('validation.required', 'This field is required') }}
-                                            render={({ field }) => (
-                                                <TextField
-                                                    {...field}
-                                                    label={t('formLabels.residenceAddress', 'Address')}
-                                                    variant="outlined"
-                                                    fullWidth
-                                                    margin="dense"
+                                        </Grid>
+                                        <Grid item xs={12} sm={6}>
+                                             <ControlledTextField<IGuestFormData>
+                                                name="apartmentNumber"
+                                                label={t('formLabels.apartmentNumber')}
+                                                textFieldProps={{
+                                                     variant: "outlined", 
+                                                     fullWidth: true, 
+                                                     margin: "dense", 
+                                                     placeholder: t('placeholders.apartmentNumberOptional'),
+                                                     InputLabelProps: { shrink: true } 
+                                                 }}
+                                            />
+                                        </Grid>
+                                        <Grid item xs={12} sm={6}>
+                                            <ControlledTextField<IGuestFormData>
+                                                name="city"
+                                                label={t('formLabels.city', 'City')}
+                                                required
+                                                rules={{ required: t('validation.required', 'This field is required') }}
+                                                textFieldProps={{ variant: "outlined", fullWidth: true, margin: "dense" }}
+                                            />
+                                        </Grid>
+                                        <Grid item xs={12} sm={6}>
+                                            <ControlledTextField<IGuestFormData>
+                                                name="postcode"
+                                                label={t('formLabels.postcode', 'Postcode')}
                                                     required
-                                                    InputLabelProps={{ shrink: true }}
-                                                    error={!!errors.residenceAddress}
-                                                    helperText={errors.residenceAddress ? getErrorMessage(errors.residenceAddress) : ''}
-                                                />
-                                            )}
-                                        />
-                                    </Grid>
-                                    <Grid item xs={12} sm={6}>
-                                        <Controller
-                                            name="apartmentNumber"
-                                            control={control}
-                                            defaultValue={registrationData?.apartmentNumber || ''}
-                                            render={({ field }) => (
-                                                <TextField
-                                                    {...field}
-                                                    label={t('formLabels.apartmentNumber')}
-                                                    placeholder={t('placeholders.apartmentNumberOptional')}
-                                                    variant="outlined"
-                                                    fullWidth
-                                                    margin="dense"
-                                                    InputLabelProps={{ shrink: true }}
-                                                    error={!!errors.apartmentNumber}
-                                                    helperText={errors.apartmentNumber ? getErrorMessage(errors.apartmentNumber) : ''}
-                                                />
-                                            )}
-                                        />
-                                    </Grid>
-                                    <Grid item xs={12} sm={6}>
-                                        <Controller
-                                            name="city"
-                                            control={control}
-                                            rules={{ required: t('validation.required', 'This field is required') }}
-                                            render={({ field }) => (
-                                                <TextField
-                                                    {...field}
-                                                    label={t('formLabels.city', 'City')}
-                                                    variant="outlined"
-                                                    fullWidth
-                                                    margin="dense"
-                                                    required
-                                                    InputLabelProps={{ shrink: true }}
-                                                    error={!!errors.city}
-                                                    helperText={errors.city ? getErrorMessage(errors.city) : ''}
-                                                />
-                                            )}
-                                        />
-                                    </Grid>
-                                    <Grid item xs={12} sm={6}>
-                                        <Controller
-                                            name="postcode"
-                                            control={control}
-                                            rules={{ required: t('validation.required', 'This field is required') }}
-                                            render={({ field }) => (
-                                                <TextField
-                                                    {...field}
-                                                    label={t('formLabels.postcode', 'Postcode')}
-                                                    variant="outlined"
-                                                    fullWidth
-                                                    margin="dense"
-                                                    required
-                                                    InputLabelProps={{ shrink: true }}
-                                                    error={!!errors.postcode}
-                                                    helperText={errors.postcode ? getErrorMessage(errors.postcode) : ''}
-                                                />
-                                            )}
-                                        />
-                                    </Grid>
-                                    <Grid item xs={12} sm={6}>
-                                        <Controller
-                                            name="visitDate"
-                                            control={control}
-                                            rules={{
-                                                required: t('validation.required', 'This field is required'),
-                                                validate: validateVisitDate
-                                            }}
-                                            render={({ field }) => (
-                                                <TextField
-                                                    {...field}
-                                                    label={t('formLabels.visitDate', 'Visit Date')}
-                                                    type="date"
-                                                    InputLabelProps={{ shrink: true }}
-                                                    variant="outlined"
-                                                    fullWidth
-                                                    margin="dense"
-                                                    required
-                                                    error={!!errors.visitDate}
-                                                    helperText={errors.visitDate ? getErrorMessage(errors.visitDate) : ''}
-                                                />
-                                            )}
+                                                rules={{ required: t('validation.required', 'This field is required') }}
+                                                textFieldProps={{ variant: "outlined", fullWidth: true, margin: "dense" }}
+                                            />
+                                        </Grid>
+                                        <Grid item xs={12} sm={6}>
+                                            <ControlledTextField<IGuestFormData>
+                                                name="visitDate"
+                                                label={t('formLabels.visitDate', 'Visit Date')}
+                                                required
+                                                rules={{ 
+                                                    required: t('validation.required', 'This field is required'), 
+                                                    validate: (value) => {
+                                                        if (typeof value !== 'string' || !value) return true;
+                                                        return validateVisitDate(value) || t('validation.visitDate');
+                                                    } 
+                                                }}
+                                                textFieldProps={{ 
+                                                    variant: "outlined", 
+                                                    fullWidth: true, 
+                                                    margin: "dense", 
+                                                    type: 'date',
+                                                    InputLabelProps: { shrink: true } 
+                                                }}
                                         />
                                     </Grid>
                                 </>
                             ) : (
-                                registrationData && <>
+                                    registrationData && <>
                                     {renderReadOnlyField(t('formLabels.firstName', 'First Name'), registrationData.firstName)}
                                     {renderReadOnlyField(t('formLabels.lastName', 'Last Name'), registrationData.lastName)}
                                     {renderReadOnlyField(t('formLabels.email', 'Email'), registrationData.email)}
-                                    {renderReadOnlyField(t('formLabels.secondLastName', 'Second Last Name'), registrationData.secondLastName)}
-                                    {renderReadOnlyField(t('formLabels.birthDate', 'Birth Date'), registrationData.birthDate, true)}
-                                    {renderReadOnlyField(t('formLabels.nationality', 'Nationality'), registrationData.nationality)}
-                                    {renderReadOnlyField(t('formLabels.sex', 'Sex'), registrationData.sex)}
-                                    {renderReadOnlyField(t('formLabels.documentType', 'Document Type'), registrationData.documentType)}
-                                    {renderReadOnlyField(t('formLabels.documentNumber', 'Document Number'), registrationData.documentNumber)}
-                                    {renderReadOnlyField(t('formLabels.documentSupNum', 'Support Number'), registrationData.documentSupNum)}
-                                    {renderReadOnlyField(t('formLabels.phone', 'Phone'), registrationData.phone)}
-                                    {renderReadOnlyField(t('formLabels.countryResidence', 'Country of Residence'), registrationData.countryResidence)}
-                                    {renderReadOnlyField(t('formLabels.city', 'City'), registrationData.city)}
-                                    {renderReadOnlyField(t('formLabels.postcode', 'Postcode'), registrationData.postcode)}
-                                    {renderReadOnlyField(
-                                        t('formLabels.residenceAddress', 'Address'), 
-                                        registrationData.residenceAddress,
-                                        false,
-                                        formatFullAddress(registrationData)
-                                    )}
-                                    {renderReadOnlyField(t('formLabels.visitDate', 'Visit Date'), registrationData.visitDate, true)}
-                                </>
-                            )}
-                            {renderReadOnlyField(t('formLabels.timestamp', 'Registered At'), registrationData?.timestamp, true)}
+                            {renderReadOnlyField(t('formLabels.secondLastName', 'Second Last Name'), registrationData.secondLastName)}
+                            {renderReadOnlyField(t('formLabels.birthDate', 'Birth Date'), registrationData.birthDate, true)}
+                            {renderReadOnlyField(t('formLabels.nationality', 'Nationality'), registrationData.nationality)}
+                            {renderReadOnlyField(t('formLabels.sex', 'Sex'), registrationData.sex)}
+                            {renderReadOnlyField(t('formLabels.documentType', 'Document Type'), registrationData.documentType)}
+                            {renderReadOnlyField(t('formLabels.documentNumber', 'Document Number'), registrationData.documentNumber)}
+                            {renderReadOnlyField(t('formLabels.documentSupNum', 'Support Number'), registrationData.documentSupNum)}
+                            {renderReadOnlyField(t('formLabels.phone', 'Phone'), registrationData.phone)}
+                            {renderReadOnlyField(t('formLabels.countryResidence', 'Country of Residence'), registrationData.countryResidence)}
+                            {renderReadOnlyField(t('formLabels.city', 'City'), registrationData.city)}
+                            {renderReadOnlyField(t('formLabels.postcode', 'Postcode'), registrationData.postcode)}
+                                        {renderReadOnlyField(
+                                            t('formLabels.residenceAddress', 'Address'), 
+                                            registrationData.residenceAddress,
+                                            false,
+                                            formatFullAddress(registrationData)
+                                        )}
+                            {renderReadOnlyField(t('formLabels.visitDate', 'Visit Date'), registrationData.visitDate, true)}
+                                    </>
+                                )}
+                                {renderReadOnlyField(t('formLabels.timestamp', 'Registered At'), registrationData?.timestamp, true)}
                             {renderReadOnlyField('Registration ID', registrationId)}
                         </Grid>
                     )}
-                </DialogContent>
-                <DialogActions>
-                    {isEditMode && (
-                        <Button type="submit" disabled={isSaving || !isDirty} variant="contained">
-                            {isSaving ? <CircularProgress size={24} /> : t('actions.save', 'Save')}
-                        </Button>
-                    )}
-                    <Button onClick={onClose} disabled={isSaving}>{t('actions.close', 'Close')}</Button>
-                </DialogActions>
-            </Box>
+            </DialogContent>
+            <DialogActions>
+                {isEditMode && (
+                            <Button type="submit" disabled={isSaving || !isDirty} variant="contained">
+                        {isSaving ? <CircularProgress size={24} /> : t('actions.save', 'Save')}
+                    </Button>
+                )}
+                <Button onClick={onClose} disabled={isSaving}>{t('actions.close', 'Close')}</Button>
+            </DialogActions>
+                </Box>
+            </FormProvider>
         </Dialog>
     );
 }

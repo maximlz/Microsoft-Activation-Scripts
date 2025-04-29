@@ -144,18 +144,6 @@ const AddBookingModal: React.FC<AddBookingModalProps> = ({ open, onClose, onSave
         }
     }, [initialData, open]);
 
-    // Генерация кода для нового бронирования
-    useEffect(() => {
-        if (open && !isEditMode && !formData.confirmationCode) {
-            // Генерируем код только один раз при открытии для нового бронирования
-            const generateCode = async () => {
-                const newCode = await generateUniqueToken(8); // Генерируем код (длина 8?) 
-                setFormData(prev => ({ ...prev, confirmationCode: newCode }));
-            }
-            generateCode();
-        }
-    }, [open, isEditMode, formData.confirmationCode]);
-
     const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         if (isViewMode) return; // Запрещаем изменение в режиме просмотра
         const { name, value } = event.target;
@@ -245,10 +233,7 @@ const AddBookingModal: React.FC<AddBookingModalProps> = ({ open, onClose, onSave
                             value={formData.confirmationCode || ''}
                             onChange={handleChange}
                             required
-                            InputProps={{
-                                readOnly: true,
-                            }}
-                            helperText={!isEditMode ? "Generated automatically" : "Cannot be changed"}
+                            InputProps={{ readOnly: isViewMode }}
                         />
 
                         <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
